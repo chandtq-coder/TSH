@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Thần Số Học Phương Đông</title>
+  <meta name="description" content="Tra cứu và diễn giải số điện thoại, CCCD theo Thần số học phương đông (Bát tinh) và đề xuất SĐT 10 số theo từng nhà mạng Việt Nam.">
+  <meta name="theme-color" content="#a3201d" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#17110f" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#app">Bỏ qua đến nội dung</a>
+
+  <header class="app-header">
+    <div class="wrap header-in">
+      <img class="logo" src="icons/icon.svg" alt="" width="40" height="40">
+      <div class="titles">
+        <h1>Thần Số Học Phương Đông</h1>
+        <p>Bát tinh · SĐT · CCCD</p>
+      </div>
+      <button id="install-btn" class="btn small ghost" hidden>Cài ứng dụng</button>
+    </div>
+  </header>
+
+  <main id="app" class="wrap" tabindex="-1">
+
+    <!-- ============ TRA CỨU ============ -->
+    <section id="tab-lookup" class="tab" aria-labelledby="h-lookup">
+      <h2 id="h-lookup" class="sr-only">Tra cứu và diễn giải</h2>
+
+      <div class="seg" role="radiogroup" aria-label="Loại số cần tra">
+        <button type="button" role="radio" aria-checked="true" data-mode="phone">Số điện thoại</button>
+        <button type="button" role="radio" aria-checked="false" data-mode="cccd">CCCD</button>
+        <button type="button" role="radio" aria-checked="false" data-mode="seq">Dãy số khác</button>
+      </div>
+
+      <form id="lookup-form" class="card form" novalidate autocomplete="off">
+        <label for="lookup-input" id="lookup-label">Số điện thoại (10 số)</label>
+        <input id="lookup-input" class="numinput" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0912 345 678" maxlength="32" aria-describedby="lookup-hint lookup-error">
+        <p id="lookup-hint" class="hint"></p>
+        <p id="lookup-error" class="error" role="alert" hidden></p>
+
+        <fieldset id="gender-field" class="chips-field">
+          <legend>Giới tính <span class="muted">(tùy chọn, ảnh hưởng một số ghi chú)</span></legend>
+          <div class="radio-chips">
+            <label><input type="radio" name="gender" value="" checked><span>Không nêu</span></label>
+            <label><input type="radio" name="gender" value="nam"><span>Nam</span></label>
+            <label><input type="radio" name="gender" value="nu"><span>Nữ</span></label>
+          </div>
+        </fieldset>
+
+        <details id="compat-field" class="inline-details">
+          <summary>So với CCCD của bạn (tùy chọn)</summary>
+          <label for="compat-input" class="sub">CCCD 12 số</label>
+          <input id="compat-input" class="numinput" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="079 0 88 012345" maxlength="20">
+          <p class="hint">Dùng để xét xem SĐT có “hóa thần” chế hóa hung tinh trong CCCD hay không. Chỉ xử lý trên máy bạn.</p>
+        </details>
+
+        <div class="actions">
+          <button type="submit" class="btn primary">Phân tích</button>
+          <button type="button" id="lookup-clear" class="btn ghost">Xóa</button>
+        </div>
+        <p id="privacy-note" class="privacy" hidden>🔒 CCCD chỉ được xử lý ngay trên thiết bị của bạn, không gửi đi đâu và không được lưu lại.</p>
+      </form>
+
+      <div id="lookup-result" aria-live="polite"></div>
+    </section>
+
+    <!-- ============ ĐỀ XUẤT ============ -->
+    <section id="tab-suggest" class="tab" aria-labelledby="h-suggest" hidden>
+      <h2 id="h-suggest" class="sr-only">Đề xuất số điện thoại</h2>
+
+      <form id="suggest-form" class="card form" novalidate autocomplete="off">
+        <fieldset class="chips-field">
+          <legend>Nhà mạng</legend>
+          <div id="carrier-chips" class="radio-chips"></div>
+        </fieldset>
+
+        <div class="grid2">
+          <div>
+            <label for="goal">Ưu tiên</label>
+            <select id="goal"></select>
+          </div>
+          <div>
+            <label for="tail">Đuôi mong muốn</label>
+            <select id="tail">
+              <option value="">Tùy ý (đuôi cát tinh)</option>
+              <option value="TY">Thiên y – tài lộc, tình cảm</option>
+              <option value="DN">Diên niên – công việc, năng lực</option>
+              <option value="SK">Sinh khí – quý nhân, vui vẻ</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="chips-field">
+          <legend>Giới tính <span class="muted">(tùy chọn)</span></legend>
+          <div class="radio-chips">
+            <label><input type="radio" name="sgender" value="" checked><span>Không nêu</span></label>
+            <label><input type="radio" name="sgender" value="nam"><span>Nam</span></label>
+            <label><input type="radio" name="sgender" value="nu"><span>Nữ</span></label>
+          </div>
+        </fieldset>
+
+        <label class="check"><input type="checkbox" id="allow05"><span>Cho phép số 0 và 5 trong dãy <span class="muted">(giáo trình khuyên hạn chế)</span></span></label>
+
+        <details class="inline-details" id="suggest-cccd-wrap">
+          <summary>Cá nhân hóa theo CCCD (tùy chọn)</summary>
+          <label for="suggest-cccd" class="sub">CCCD 12 số</label>
+          <input id="suggest-cccd" class="numinput" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="079 0 88 012345" maxlength="20">
+          <p class="hint">Ứng dụng tìm số có “hóa thần” bù cho hung tinh và cát tinh còn thiếu trong CCCD. Chỉ xử lý trên máy bạn, không lưu.</p>
+        </details>
+
+        <div class="actions">
+          <button type="submit" class="btn primary">Đề xuất số</button>
+          <button type="button" id="suggest-more" class="btn ghost" hidden>Đề xuất bộ khác</button>
+        </div>
+        <p id="suggest-error" class="error" role="alert" hidden></p>
+      </form>
+
+      <div id="suggest-result" aria-live="polite"></div>
+
+      <details class="card fav-wrap" id="fav-wrap">
+        <summary>Số đã lưu <span id="fav-count" class="badge neutral">0</span></summary>
+        <div id="fav-list"></div>
+      </details>
+    </section>
+
+    <!-- ============ KIẾN THỨC ============ -->
+    <section id="tab-learn" class="tab" aria-labelledby="h-learn" hidden>
+      <h2 id="h-learn" class="sr-only">Kiến thức nền</h2>
+      <div id="learn-body"></div>
+    </section>
+
+    <!-- ============ GIỚI THIỆU ============ -->
+    <section id="tab-about" class="tab" aria-labelledby="h-about" hidden>
+      <h2 id="h-about" class="sr-only">Giới thiệu và lưu ý</h2>
+      <div id="about-body"></div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Điều hướng chính">
+    <div class="wrap nav-in">
+      <button data-tab="lookup" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg><span>Tra cứu</span></button>
+      <button data-tab="suggest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.4 5.8.5-4.4 3.8 1.4 5.7L12 15.4 7 18.4l1.4-5.7L4 8.9l5.8-.5z"/></svg><span>Đề xuất SĐT</span></button>
+      <button data-tab="learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5v13c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z"/><path d="M12 6v13"/></svg><span>Kiến thức</span></button>
+      <button data-tab="about"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.01"/></svg><span>Lưu ý</span></button>
+    </div>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

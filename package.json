@@ -1,0 +1,8 @@
+{
+  "name": "than-so-hoc-phuong-dong",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PWA tra cứu SĐT/CCCD theo Thần số học phương đông và đề xuất SĐT theo nhà mạng",
+  "scripts": { "test": "node --test tests/*.test.mjs", "start": "python3 -m http.server 8080" }
+}
