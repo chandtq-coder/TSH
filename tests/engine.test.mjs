@@ -62,3 +62,14 @@ test("chế độ nữ không sinh Diên niên cấp cao 19/91/78/87", () => {
   const a = generateForCarrier({ carrierId: "viettel", seed: 9, count: 10, gender: "nu" });
   assert.ok(a.every((x) => !x.analysis.pairs.some((p) => ["19", "91", "78", "87"].includes(p.a + p.b))));
 });
+
+import { parseList, parsePrice } from "../js/listparse.js";
+test("đọc danh sách số kèm giá", () => {
+  assert.equal(parsePrice("1.500.000đ"), 1500000);
+  assert.equal(parsePrice("800k"), 800000);
+  assert.equal(parsePrice("1,5tr"), 1500000);
+  assert.equal(parsePrice("2 triệu"), 2000000);
+  const l = parseList("0931 413 191 - 1.500.000đ\n+84 893.131.919  800k\n0794191313\nrác\n0931413191");
+  assert.deepEqual(l.map((x) => x.number), ["0931413191", "0893131919", "0794191313"]);
+  assert.deepEqual(l.map((x) => x.price), [1500000, 800000, null]);
+});

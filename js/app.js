@@ -1,6 +1,7 @@
 import { STARS, STAR_ORDER, FIELD_LABELS, DOMAINS, COMBOS, HEAL, HEAL_NUMBERS, CARRIER_NOTE } from "./data.js";
 import { CARRIERS, carrierById } from "./carriers.js";
 import { analyze, analyzePhone, analyzeCCCD, compatibility, formatPhone, digitsOnly, normalizePhone, summarize, levelOf } from "./engine.js";
+import { parseList, fmtPrice } from "./listparse.js";
 import { GOALS, generateForCarrier, generateAll, carrierPrefixInfo } from "./generator.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -257,10 +258,12 @@ function numberCard(item) {
       <span class="badge ${toneBadge(a.level.tone)}">${a.total} · ${a.level.label}</span></div>
     <div class="nc-chain">${chain}</div>
     <ul class="nc-why">${item.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>
-    <p class="nc-tail">${c ? esc(c.name) : ""} · tìm theo đuôi <b>${item.number.slice(-4)}</b> tại cửa hàng/kênh chính thức của nhà mạng</p>
+    <p class="nc-tail">${c ? esc(c.name) : ""} · tìm theo đuôi <b>${item.number.slice(-4)}</b> tại kênh chính thức của nhà mạng${c?.shop ? " (bấm nút tìm sẽ tự chép đuôi, chỉ cần dán)" : ""}</p>
     <div class="nc-actions">
       <button type="button" class="btn ghost" data-act="detail">Xem diễn giải</button>
       <button type="button" class="btn ghost" data-act="copy">Sao chép</button>
+      ${c?.shop ? `<a class="btn ghost" href="${c.shop.url}" target="_blank" rel="noopener noreferrer" data-act="shop" data-tail="${item.number.slice(-4)}">Tìm trên ${esc(c.shop.label)} ↗</a>` : ""}
+      <button type="button" class="btn ghost" data-act="copytail">Sao chép đuôi ${item.number.slice(-4)}</button>
       <button type="button" class="btn ghost" data-act="fav" aria-pressed="${isFav}">${isFav ? "★ Đã lưu" : "☆ Lưu"}</button>
     </div></article>`;
 }
@@ -297,7 +300,7 @@ function runSuggest(newSeed = false) {
   const o = readSuggestOptions();
   if (o.error) { setError(err, o.error); return; }
   const out = $("#suggest-result");
-  const note = `<p class="disclaimer">Các số dưới đây do ứng dụng <b>tạo theo quy tắc</b> (ưu tiên cát tinh, đuôi cát, tránh 0/5, có hóa thần…) để bạn tham khảo mẫu số đẹp. Số có thể đã được cấp hoặc không còn trong kho của nhà mạng; hãy tìm theo đuôi tại kênh chính thức. ${esc(CARRIER_NOTE)}</p>`;
+  const note = `<p class="disclaimer">Các số dưới đây do ứng dụng <b>tạo theo quy tắc</b> (ưu tiên cát tinh, đuôi cát, tránh 0/5, có hóa thần…) để bạn tham khảo mẫu số đẹp. Số có thể đã được cấp hoặc không còn trong kho của nhà mạng; hãy tìm theo đuôi tại kênh chính thức (nút “Tìm trên…” mở trang chọn số của nhà mạng). ${esc(CARRIER_NOTE)}</p>`;
   let html = note;
   if (o.profile) html += `<p class="hint" style="margin:0 2px 10px">Đã cá nhân hóa theo CCCD: ưu tiên bù ${o.profile.needs.length ? o.profile.needs.map((s) => STARS[s].name).join(", ") : "—"}.</p>`;
   if (o.carrierId === "all") {
@@ -354,6 +357,8 @@ function onDelegatedClick(e) {
   switch (btn.dataset.act) {
     case "detail": openDetail(num); break;
     case "copy": copyText(num).then((ok) => { const old = btn.textContent; btn.textContent = ok ? "Đã sao chép ✓" : "Không sao chép được"; setTimeout(() => (btn.textContent = old), 1400); }); break;
+    case "copytail": copyText(num.slice(-4)).then((ok) => { const old = btn.textContent; btn.textContent = ok ? "Đã sao chép ✓" : "Không sao chép được"; setTimeout(() => (btn.textContent = old), 1400); }); break;
+    case "shop": copyText(btn.dataset.tail); break; // chép sẵn 4 số cuối để dán vào ô tìm của nhà mạng
     case "fav": {
       let favs = loadFavs();
       favs = favs.includes(num) ? favs.filter((x) => x !== num) : [num, ...favs].slice(0, 100);
@@ -371,6 +376,26 @@ function onDelegatedClick(e) {
     }
     default:
   }
+}
+
+/* ------------------------------------------------------------------ chấm điểm danh sách ---- */
+function runList() {
+  const err = $("#list-error");
+  setError(err, "");
+  const items = parseList($("#list-input").value);
+  const out = $("#list-result");
+  if (!items.length) { setError(err, "Không tìm thấy SĐT 10 số nào. Mỗi dòng cần một số như 0931 413 191."); out.innerHTML = ""; return; }
+  const min = Number($("#list-min").value);
+  const rows = items.map((it) => ({ ...it, a: analyzePhone(it.number) })).filter((r) => r.a.total >= min);
+  const mode = $("#list-sort").value;
+  const key = { score: (r) => -r.a.total, price: (r) => (r.price ?? Infinity), value: (r) => (r.price ? -(r.a.total / (r.price / 1e6)) : -r.a.total / 1e6) }[mode];
+  rows.sort((x, y) => key(x) - key(y) || y.a.total - x.a.total);
+  const head = `<p class="hint" style="margin:0 2px 10px">Nhận dạng ${items.length} số, hiển thị ${rows.length} số đạt điểm tối thiểu${rows.some((r) => r.price) ? "" : " (không thấy giá trong danh sách)"}.</p>`;
+  out.innerHTML = head + (rows.map((r, i) => {
+    const item = { number: r.number, formatted: formatPhone(r.number), analysis: r.a, carrierId: r.a.carrier?.id, reasons: [summarize(r.a)] };
+    return numberCard(item).replace('<div class="nc-top">', `<div class="nc-top"><span><span class="rank" aria-label="Hạng ${i + 1}">${i + 1}</span>${r.price ? `<span class="price">${fmtPrice(r.price)}</span>` : ""}</span>`);
+  }).join("") || '<p class="empty">Không có số nào đạt điểm tối thiểu. Thử hạ mức điểm.</p>');
+  out.scrollIntoView({ behavior: "auto", block: "start" });
 }
 
 /* ------------------------------------------------------------------ kiến thức & giới thiệu ---- */
@@ -432,6 +457,7 @@ function renderAbout() {
   <section class="card"><h3>Ứng dụng này làm gì?</h3>
     <ul><li><b>Tra cứu:</b> phân tích SĐT, CCCD (12 số) hoặc dãy số bất kỳ theo 8 từ trường Bát tinh.</li>
     <li><b>Đề xuất SĐT:</b> tạo các số 10 chữ số có đầu số đúng của Viettel, VinaPhone, MobiFone, Vietnamobile, Gmobile, iTel, Wintel; có thể cá nhân hóa theo CCCD để bù hung tinh.</li>
+    <li><b>Chấm số:</b> dán danh sách số (kèm giá) lấy từ trang nhà mạng/đại lý để lọc và xếp hạng theo Bát tinh.</li>
     <li><b>Kiến thức:</b> bảng cặp số, quy tắc 0/5, hóa giải, tổ hợp hai sao.</li></ul></section>
   <section class="card"><h3>Nguồn và cách tính</h3>
     <p>Quy tắc, cặp số, mô tả từng sao và 64 tổ hợp lấy từ giáo trình “Thần Số Học Phương Đông” (100 trang) do bạn cung cấp. Chuỗi sao của ví dụ 13957230123 trong sách được tái hiện đúng.</p>
@@ -458,7 +484,7 @@ function renderAbout() {
 }
 
 /* ------------------------------------------------------------------ điều hướng ---- */
-const TABS = ["lookup", "suggest", "learn", "about"];
+const TABS = ["lookup", "suggest", "list", "learn", "about"];
 function setTab(tab, { updateHash = true } = {}) {
   if (!TABS.includes(tab)) tab = "lookup";
   state.tab = tab;
@@ -485,6 +511,8 @@ function init() {
   $("#lookup-clear").addEventListener("click", () => { setMode(state.mode); $("#compat-input").value = ""; $("#lookup-input").focus(); });
   $("#suggest-form").addEventListener("submit", (e) => { e.preventDefault(); runSuggest(true); });
   $("#suggest-more").addEventListener("click", () => runSuggest(true));
+  $("#list-form").addEventListener("submit", (e) => { e.preventDefault(); runList(); });
+  $("#list-clear").addEventListener("click", () => { $("#list-input").value = ""; $("#list-result").innerHTML = ""; setError($("#list-error"), ""); });
   $("#suggest-cccd").addEventListener("input", () => { state.cccdForSuggest = null; });
 
   document.addEventListener("click", onDelegatedClick);

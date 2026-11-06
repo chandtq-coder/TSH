@@ -282,3 +282,11 @@ fieldset { border: 0; padding: 0; margin: 14px 0 0; min-width: 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 #lookup-result, #suggest-result { scroll-margin-top: 84px; }
+
+textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface2); color: var(--ink); font: 1.05rem/1.5 var(--font-num); resize: vertical; }
+textarea:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
+.nav-in { grid-template-columns: repeat(5, 1fr); }
+.price { font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.rank { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); font-size: .78rem; font-weight: 700; margin-right: 8px; }
+a.btn { text-decoration: none; }
+#list-result { scroll-margin-top: 84px; }

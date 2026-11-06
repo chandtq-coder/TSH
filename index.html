@@ -130,6 +130,25 @@
       </details>
     </section>
 
+    <!-- ============ CHẤM ĐIỂM DANH SÁCH ============ -->
+    <section id="tab-list" class="tab" aria-labelledby="h-list" hidden>
+      <h2 id="h-list" class="sr-only">Chấm điểm danh sách số</h2>
+      <form id="list-form" class="card form" novalidate autocomplete="off">
+        <label for="list-input">Dán danh sách số (mỗi dòng một số, có thể kèm giá)</label>
+        <textarea id="list-input" rows="7" spellcheck="false" placeholder="0931 413 191 - 1.500.000đ&#10;0893.131.919  800k&#10;0794191313 2tr"></textarea>
+        <p class="hint">Sao chép từ trang chọn số của nhà mạng hoặc đại lý (kho số và giá do họ cung cấp). Ứng dụng nhận dạng SĐT và giá (đ, k, nghìn, tr, triệu), chấm điểm theo Bát tinh rồi xếp hạng. Không gửi dữ liệu đi đâu.</p>
+        <div class="grid2">
+          <div><label for="list-min">Điểm tối thiểu</label>
+            <select id="list-min"><option value="0">Tất cả</option><option value="56">Từ “Khá” (56)</option><option value="70" selected>Từ “Tốt” (70)</option><option value="82">Chỉ “Rất tốt” (82)</option></select></div>
+          <div><label for="list-sort">Sắp xếp</label>
+            <select id="list-sort"><option value="score">Điểm cao trước</option><option value="value">Điểm trên giá (đáng tiền)</option><option value="price">Giá thấp trước</option></select></div>
+        </div>
+        <div class="actions"><button type="submit" class="btn primary">Chấm điểm</button><button type="button" id="list-clear" class="btn ghost">Xóa</button></div>
+        <p id="list-error" class="error" role="alert" hidden></p>
+      </form>
+      <div id="list-result" aria-live="polite"></div>
+    </section>
+
     <!-- ============ KIẾN THỨC ============ -->
     <section id="tab-learn" class="tab" aria-labelledby="h-learn" hidden>
       <h2 id="h-learn" class="sr-only">Kiến thức nền</h2>
@@ -147,6 +166,7 @@
     <div class="wrap nav-in">
       <button data-tab="lookup" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg><span>Tra cứu</span></button>
       <button data-tab="suggest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.4 5.8.5-4.4 3.8 1.4 5.7L12 15.4 7 18.4l1.4-5.7L4 8.9l5.8-.5z"/></svg><span>Đề xuất SĐT</span></button>
+      <button data-tab="list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Chấm số</span></button>
       <button data-tab="learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5v13c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z"/><path d="M12 6v13"/></svg><span>Kiến thức</span></button>
       <button data-tab="about"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.01"/></svg><span>Lưu ý</span></button>
     </div>
