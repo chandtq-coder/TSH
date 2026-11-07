@@ -163,6 +163,13 @@
             <div id="lucky-stations" class="radio-chips"></div>
           </fieldset>
 
+          <details class="inline-details" id="lucky-recent-wrap">
+            <summary>Kết quả 8 kỳ gần nhất của đài (tùy chọn)</summary>
+            <label for="lucky-recent" class="sub">Dán kết quả (kỳ mới nhất ở trên, mỗi kỳ cách nhau một dòng trống)</label>
+            <textarea id="lucky-recent" rows="6" spellcheck="false" placeholder="07/11/2026&#10;8: 34&#10;7: 043&#10;6: 8644 5424 3047&#10;5: 3176&#10;4: 35611 57269 …&#10;ĐB: 471941&#10;&#10;31/10/2026&#10;…"></textarea>
+            <p class="hint">Ứng dụng không tự lấy được kết quả nên bạn dán từ trang kết quả chính thức. App đọc các dãy số 2–6 chữ số, phân tích Bát tinh của các kỳ gần đây để biết sao nào còn thiếu hoặc hung tinh nào đang nhiều, rồi bù/hóa giải trong bộ số của bạn. Việc này chỉ để cân bằng năng lượng theo Bát tinh, không giúp dự đoán kết quả vì mỗi kỳ quay độc lập.</p>
+          </details>
+
           <label class="check"><input type="checkbox" id="lucky-05"><span>Cho phép số 0 và 5 trong bộ số</span></label>
 
           <div class="actions">

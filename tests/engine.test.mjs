@@ -103,3 +103,60 @@ test("số may mắn: đúng cơ cấu giải miền Nam, tái lập, tùy chọ
   const w = generateLucky({ ...o, allow05: true, variant: 3 });
   assert.ok(w.groups.flatMap((g) => g.tiers.flatMap((t) => t.items)).some((i) => /[05]/.test(i.number)));
 });
+
+import { menhOf, supportFor, parseRecent, recentEnergy, SINH, KHAC } from "../js/lucky.js";
+test("mệnh nạp âm theo năm sinh và quan hệ ngũ hành", () => {
+  assert.equal(menhOf(1988).element, "Mộc"); // Mậu Thìn – Đại Lâm Mộc
+  assert.equal(menhOf(1988).canChi, "Mậu Thìn");
+  assert.equal(menhOf(1984).element, "Kim"); // Giáp Tý – Hải Trung Kim
+  assert.equal(menhOf(2000).element, "Kim"); // Canh Thìn – Bạch Lạp Kim
+  const s = supportFor("Mộc");
+  assert.equal(s.sinhTa, "Thủy"); assert.equal(s.khacTa, "Kim");
+  assert.ok(s.support.has("SK") && !s.support.has("DN") && s.clash.has("DN"));
+  assert.equal(SINH.Mộc, "Hỏa"); assert.equal(KHAC.Kim, "Mộc");
+});
+
+const SAMPLE = `07/11/2026
+TP. HCM XSHCM - 11A7
+Giải tám 29
+Giải bảy 420
+Giải sáu 1387 2100 0266
+Giải năm 8011
+Giải tư 06509 93007 16758 66679 75842 01765 59607
+Giải ba 41762 75058
+Giải nhì 57040
+Giải nhất 66219
+Đặc biệt 274588
+
+31/10/2026
+Giải tám 11
+Giải bảy 222
+Đặc biệt 123456`;
+test("đọc kết quả các kỳ gần nhất và phân tích năng lượng", () => {
+  const pr = parseRecent(SAMPLE);
+  assert.equal(pr.draws.length, 2);
+  assert.equal(pr.draws[0].length, 18); // không lẫn ngày hay mã đài như 11A7
+  assert.ok(!pr.numbers.includes("11A7"));
+  assert.equal(parseRecent(Array(12).fill("12345\n").join("\n")).draws.length <= 8, true);
+  const en = recentEnergy(pr);
+  assert.equal(en.draws, 2);
+  assert.ok(en.total > 0 && Array.isArray(en.missing));
+  assert.equal(recentEnergy(parseRecent("")), null);
+});
+
+test("số may mắn: đủ cát tinh, ưu tiên Sinh khí/Thiên y, mệnh và kết quả gần đây được dùng", () => {
+  const o = { cccd: "079088012345", date: new Date(2026, 10, 7), recentText: SAMPLE };
+  const r = generateLucky(o);
+  assert.equal(r.menh.element, "Mộc");
+  assert.ok(r.needs.includes("SK") && r.needs.includes("TY"));
+  assert.equal(r.recent.draws, 2);
+  for (const g of r.groups) {
+    const db = g.tiers.at(-1).items[0].analysis;
+    assert.ok(db.counts.SK > 0 && db.counts.TY > 0 && db.counts.DN > 0, `${g.station} ĐB ${g.tiers.at(-1).items[0].number}`);
+    assert.ok(g.coverage.SK > 0 && g.coverage.TY > 0 && g.coverage.DN > 0);
+    assert.equal(g.fullCat, true);
+  }
+  const a = generateLucky({ ...o, recentText: "" });
+  const flat = (x) => JSON.stringify(x.groups.map((g) => g.tiers.map((t) => t.items.map((i) => i.number))));
+  assert.notEqual(flat(a), flat(r)); // kết quả dán vào thực sự làm thay đổi bộ số
+});

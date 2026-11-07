@@ -413,11 +413,36 @@ function stationCard(g) {
     <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
   return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
     <table class="prize-table"><caption class="sr-only">Bộ số may mắn đài ${esc(g.station)}</caption><tbody>${rows}</tbody></table>
+    <h4>Độ phủ các sao trong bộ số</h4>
+    <div class="dist-legend">${STAR_ORDER.map((id) => g.coverage[id] ? chip(id, `${STARS[id].name} ×${g.coverage[id]}`) : `<span class="chip" style="--sc: var(--muted); opacity:.55"><i class="dot"></i>${STARS[id].name} ×0</span>`).join("")}</div>
+    <p class="hint" style="margin-top:6px">${g.fullCat ? "✓ Đủ cả 4 cát tinh: Sinh khí, Thiên y, Diên niên, Phục vị." : "Chưa đủ 4 cát tinh – bấm “Bộ số khác”."}</p>
     ${anchors}<p class="legend" style="margin-top:10px">Viền xanh: điểm Bát tinh cao · viền vàng: khá · viền cam: trung bình. Di chuột/giữ vào số để xem điểm.</p>
     <div class="nc-actions"><button type="button" class="btn ghost" data-copyset="${esc(prizeText(g))}">Sao chép cả bộ</button></div></section>`;
 }
 
 let luckyVariant = 0;
+function basisPanel(r) {
+  const rows = [];
+  if (r.menh) {
+    const sup = r.support.map((id) => STARS[id].name).join(", ") || "—";
+    rows.push(`<div class="row"><b>Mệnh theo năm sinh ${r.menh.year}:</b> ${esc(r.menh.canChi)} → hành <b>${r.menh.element}</b> <span class="muted">(ước tính theo dương lịch, không thay luận bát tự)</span></div>
+      <div class="row">Hành hỗ trợ: <b>${r.sinhTa}</b> (sinh ta) và <b>${r.menh.element}</b> (cùng hành) → ưu tiên sao <b>${esc(sup)}</b>; tránh hành <b>${r.khacTa}</b> (khắc ta).</div>`);
+  } else {
+    rows.push('<div class="row">Chưa nhập CCCD nên chưa xét mệnh và hung tinh tiên thiên. Nhập CCCD để cá nhân hóa đầy đủ.</div>');
+  }
+  const heal = r.profile && r.profile.hung.length ? r.profile.hung.map((h) => `${STARS[h].name} (chế hóa bằng ${(HEAL[h] || []).map((x) => STARS[x].name).join("/")})`).join("; ") : "";
+  rows.push(`<div class="row"><b>Bổ sung:</b> Sinh khí và Thiên y luôn được tăng cường; sao cần bù: ${r.needs.map((id) => chip(id)).join(" ")}</div>`);
+  if (heal) rows.push(`<div class="row"><b>Hóa giải theo CCCD:</b> ${esc(heal)}</div>`);
+  rows.push("<div class=\"row\"><b>Ngũ hành:</b> các từ trường liền kề được chọn theo chiều tương sinh (Mộc → Hỏa → Thổ → Kim → Thủy → Mộc), tránh tương khắc.</div>");
+  if (r.recent) {
+    const nm = (ids) => (ids.length ? ids.map((id) => STARS[id].name).join(", ") : "không");
+    rows.push(`<div class="row"><b>Kết quả gần đây:</b> đã đọc ${r.recent.draws} kỳ, ${r.recent.numbers} dãy số. Cát tinh còn yếu: ${esc(nm(r.recent.weakCat))}. Hung tinh nổi: ${esc(nm(r.recent.hungDominant))}. Bộ số được bù theo đó.</div>`);
+  } else {
+    rows.push('<div class="row muted">Chưa dán kết quả các kỳ gần nhất (tùy chọn).</div>');
+  }
+  return `<section class="card"><h3>Cơ sở của bộ số</h3><div class="remedy">${rows.join("")}</div></section>`;
+}
+
 function runLucky(bump = false) {
   const err = $("#lucky-error");
   setError(err, "");
@@ -427,10 +452,10 @@ function runLucky(bump = false) {
   if (cccd && cccd.length !== 12) { setError(err, "CCCD cần đủ 12 số (hoặc để trống)."); return; }
   if (bump) luckyVariant++;
   const station = $('input[name="lstation"]:checked')?.value || "";
-  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant });
+  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, recentText: $("#lucky-recent").value });
   const gtxt = r.gender === "nam" ? "Nam" : r.gender === "nu" ? "Nữ" : "";
   let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Mỗi đài một bộ số đủ cơ cấu giải (giải tám 2 số → giải đặc biệt 6 số). Cùng thông tin, kết quả giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
-  html += r.groups.map(stationCard).join("");
+  html += basisPanel(r) + r.groups.map(stationCard).join("");
   html += `<p class="disclaimer"><b>Lưu ý:</b> xổ số hoàn toàn ngẫu nhiên, không có bộ số nào làm tăng khả năng trúng. Các bộ số trên chỉ là gợi ý giải trí, chọn theo cặp số cát của Bát tinh cùng các “số neo” từ ngày và CCCD của bạn. Chỉ mua vé của các công ty xổ số được cấp phép, trong khả năng tài chính; không dành cho người dưới 18 tuổi.</p>`;
   $("#lucky-result").innerHTML = html;
   $("#lucky-more").hidden = false;
@@ -532,7 +557,7 @@ function renderAbout() {
   <section class="card"><h3>Ứng dụng này làm gì?</h3>
     <ul><li><b>Tra cứu:</b> phân tích SĐT, CCCD (12 số) hoặc dãy số bất kỳ theo 8 từ trường Bát tinh.</li>
     <li><b>Đề xuất SĐT:</b> tạo các số 10 chữ số có đầu số đúng của Viettel, VinaPhone, MobiFone, Vietnamobile, Gmobile, iTel, Wintel; có thể cá nhân hóa theo CCCD để bù hung tinh.</li>
-    <li><b>May mắn:</b> bộ số 6 chữ số cho xổ số miền Nam theo CCCD, giới tính, ngày và đài (chỉ mang tính giải trí).</li>
+    <li><b>May mắn:</b> bộ số đủ cơ cấu giải xổ số miền Nam (2→6 số) theo CCCD, mệnh, ngày, đài, đủ cát tinh, hóa giải, ngũ hành tương sinh và kết quả các kỳ gần đây bạn dán vào (chỉ mang tính giải trí).</li>
     <li><b>Chấm số:</b> dán danh sách số (kèm giá) lấy từ trang nhà mạng/đại lý để lọc và xếp hạng theo Bát tinh.</li>
     <li><b>Kiến thức:</b> bảng cặp số, quy tắc 0/5, hóa giải, tổ hợp hai sao.</li></ul></section>
   <section class="card"><h3>Nguồn và cách tính</h3>
