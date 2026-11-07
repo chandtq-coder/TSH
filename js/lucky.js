@@ -83,9 +83,10 @@ function stationsInLine(line) {
 
 export function parseRecent(text, maxDraws = 8) {
   const clean = String(text || "").replace(/\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/g, "\n");
-  const blocks = clean.split(/\n\s*\n|\n(?=\s*(?:kỳ|ky|xổ số|xo so)(?![\p{L}\p{N}]))/iu).map((b) => b.trim()).filter(Boolean).slice(0, maxDraws);
+  const blocks = clean.split(/\n\s*\n|\n(?=\s*(?:kỳ|ky|xổ số|xo so)(?![\p{L}\p{N}]))/iu).map((b) => b.trim()).filter((b) => /(?<![\w])\d{2,6}(?![\w])/.test(b)).slice(0, maxDraws); // bỏ khối không có số (vd. dòng tiêu đề) rồi mới lấy tối đa 8 kỳ
   const draws = [];
   const byStation = {};
+  const stationDraws = {}; // đài → các kỳ (mới nhất trước), mỗi kỳ là mảng dãy số
   for (const b of blocks) {
     const lines = b.split(/\n/);
     const header = lines.map(stationsInLine).find((st) => st.length >= 2);
@@ -103,13 +104,14 @@ export function parseRecent(text, maxDraws = 8) {
       for (const [st, arr] of Object.entries(per)) {
         if (!arr.length) continue;
         (byStation[st] ||= []).push(...arr);
+        (stationDraws[st] ||= []).push(arr);
         nums.push(...arr);
       }
     }
     if (!nums.length) nums = b.match(/(?<![\w])\d{2,6}(?![\w])/g) || [];
     if (nums.length) draws.push(nums);
   }
-  return { draws, numbers: draws.flat(), byStation };
+  return { draws, numbers: draws.flat(), byStation, stationDraws };
 }
 
 export function recentEnergy(parsed) {
@@ -126,6 +128,136 @@ export function recentEnergy(parsed) {
   const hungDominant = ["HH", "TM", "NQ", "LS"].filter((id) => counts[id] / total >= 0.15).sort((a, b) => counts[b] - counts[a]);
   const weakElements = Object.keys(elements).filter((e) => elements[e] / total < 0.12);
   return { draws: parsed.draws.length, numbers: parsed.numbers.length, counts, elements, total, missing, weakCat, hungDominant, weakElements };
+}
+
+/* ----------------------------------------------------------------- quy luật 8 sao của đài ---- */
+// Mỗi sao chiếm 8/64 cặp chữ số có nghĩa, nên nếu các chữ số hoàn toàn ngẫu nhiên thì mỗi sao kỳ vọng 12,5% số cặp.
+// Độ lệch so với mức này (điểm z) cho biết sao đang "nổi" hay "vắng" trong các kỳ gần nhất — chỉ là thống kê mô tả.
+const EXPECT = 1 / 8;
+
+// draws: các kỳ của một đài, mới nhất trước; mỗi kỳ là mảng các dãy số.
+export function stationRule(draws) {
+  if (!draws || !draws.length) return null;
+  const kept = draws.slice(0, 8);
+  const zero = () => Object.fromEntries(STAR_ORDER.map((id) => [id, 0]));
+  const counts = zero();
+  const elements = { Kim: 0, Mộc: 0, Thủy: 0, Hỏa: 0, Thổ: 0 };
+  const tail = zero();
+  const dbTail = [];
+  const perDraw = kept.map((nums) => {
+    const c = zero();
+    let n = 0;
+    for (const num of nums) {
+      const a = analyze(num);
+      a.pairs.forEach((q) => { c[q.star]++; counts[q.star]++; elements[STARS[q.star].element]++; n++; });
+      if (a.tailPair) tail[a.tailPair.star]++;
+    }
+    // Trong bảng kết quả, giải đặc biệt là dãy cuối cùng của kỳ đầy đủ (18 dãy).
+    if (nums.length === 18) { const db = analyze(nums[17]).tailPair; if (db) dbTail.push(db.star); }
+    return { counts: c, pairs: n };
+  });
+  const N = Object.values(counts).reduce((x, y) => x + y, 0);
+  if (!N) return null;
+  const sd = Math.sqrt((EXPECT * (1 - EXPECT)) / N);
+  const share = {};
+  const z = {};
+  const state = {};
+  for (const id of STAR_ORDER) {
+    share[id] = counts[id] / N;
+    z[id] = (share[id] - EXPECT) / sd;
+    state[id] = z[id] >= 1.5 ? "nổi" : z[id] <= -1.5 ? "vắng" : "cân bằng";
+  }
+  let trend = null;
+  if (kept.length >= 4) {
+    const recentN = perDraw.slice(0, 3).reduce((a, d) => a + d.pairs, 0) || 1;
+    const olderN = perDraw.slice(3).reduce((a, d) => a + d.pairs, 0) || 1;
+    trend = {};
+    for (const id of STAR_ORDER) {
+      const r = perDraw.slice(0, 3).reduce((a, d) => a + d.counts[id], 0) / recentN;
+      const o = perDraw.slice(3).reduce((a, d) => a + d.counts[id], 0) / olderN;
+      trend[id] = r - o >= 0.05 ? "tăng" : r - o <= -0.05 ? "giảm" : "ổn định";
+    }
+  }
+  const dominantElement = Object.keys(elements).sort((a, b) => elements[b] - elements[a])[0];
+  const tailTop = STAR_ORDER.slice().sort((a, b) => tail[b] - tail[a])[0];
+  return { draws: kept.length, pairs: N, counts, share, z, state, trend, tail, tailTop, dbTail, elements, dominantElement };
+}
+
+// Đối chiếu quy luật của đài với hồ sơ cá nhân (CCCD, mệnh) để ra hành động và trọng số cho từng sao.
+export function buildPlan(rule, profile, support, clash) {
+  const personalNeeds = new Set(profile?.needs || []);
+  const personalHung = new Set(profile?.hung || []);
+  const plan = {};
+  for (const id of STAR_ORDER) {
+    const st = STARS[id];
+    const state = rule?.state[id] || null;
+    const trend = rule?.trend?.[id] || null;
+    let weight = 1;
+    let action;
+    let personal = "—";
+    if (st.base > 0) {
+      const need = personalNeeds.has(id);
+      personal = need ? "cần bổ sung" : support.has(id) ? "hợp mệnh" : "—";
+      if (state === "vắng") { weight = need ? 2.2 : 1.5; action = need ? "Đài đang vắng, cá nhân cũng cần → bổ sung mạnh" : "Đài đang vắng → bổ sung"; }
+      else if (state === "nổi") { weight = need ? 1.6 : 1.1; action = need ? "Đài đang vượng, cá nhân cần → tăng cường" : "Đài đang vượng → giữ nhịp"; }
+      else { weight = need ? 1.5 : 1; action = need ? "Cá nhân cần → bổ sung" : "Cân bằng → giữ"; }
+      if (trend === "giảm") weight *= 1.15;
+      if (support.has(id)) weight *= 1.15;
+      if (clash.has(id)) weight *= 0.7;
+    } else {
+      const mine = personalHung.has(id);
+      personal = mine ? "hung tinh trong CCCD" : "—";
+      weight = state === "nổi" ? 0.6 : state === "vắng" ? 0.9 : 0.8;
+      action = state === "nổi" ? "Đài đang nhiều sao này → chỉ dùng kèm hóa thần" : "Chỉ dùng một dãy kèm hóa thần để đủ 8 sao";
+      if (mine) { weight *= 0.85; action += " (CCCD cũng có → hóa giải mạnh)"; }
+    }
+    plan[id] = { state, trend, personal, weight, action };
+  }
+  for (const h of HUNG_IDS) {
+    const boosted = rule?.state[h] === "nổi";
+    if (!boosted && !personalHung.has(h)) continue;
+    const mult = boosted && personalHung.has(h) ? 1.5 : 1.25;
+    for (const hl of HEAL[h] || []) {
+      plan[hl].weight *= mult;
+      plan[hl].action += ` · hóa giải ${STARS[h].name}`;
+    }
+  }
+  for (const id of STAR_ORDER) plan[id].weight = Math.max(0.4, Math.min(3, plan[id].weight));
+  return plan;
+}
+
+// Kiểm tra bộ số đã sinh có thực hiện đúng kế hoạch đối chiếu hay không.
+export function verifySet({ tiers, coverage, includeHung, profile, menh, support, clash, plan, rule }) {
+  const items = tiers.flatMap((t) => t.items);
+  const checks = [];
+  const add = (ok, text) => checks.push({ ok: !!ok, text });
+  if (includeHung) add(STAR_ORDER.every((x) => coverage[x] > 0), "Đủ cả 8 sao, mỗi sao xấu đều có hóa thần đứng sau");
+  else add(["SK", "TY", "DN", "PV"].every((x) => coverage[x] > 0), "Đủ 4 cát tinh");
+  const db = tiers.at(-1).items[0]?.analysis;
+  add(db && db.counts.SK > 0 && db.counts.TY > 0 && db.counts.DN > 0, "Giải đặc biệt đủ Sinh khí – Thiên y – Diên niên");
+  if (profile?.hung.length) {
+    const ok = profile.hung.every((h) => (HEAL[h] || []).some((x) => coverage[x] > 0));
+    add(ok, `Hung tinh trong CCCD (${profile.hung.map((h) => STARS[h].name).join(", ")}) đều có hóa thần chế hóa`);
+  }
+  if (rule) {
+    const vang = ["SK", "TY", "DN", "PV"].filter((x) => plan[x].state === "vắng");
+    if (vang.length) add(vang.every((x) => coverage[x] >= 3), `Đã bù ${vang.map((x) => STARS[x].name).join(", ")} mà đài đang vắng`);
+    const noi = HUNG_IDS.filter((h) => plan[h].state === "nổi");
+    if (noi.length) add(noi.every((h) => (HEAL[h] || []).some((x) => coverage[x] >= 3)), `Đã tăng hóa thần cho ${noi.map((h) => STARS[h].name).join(", ")} mà đài đang nhiều`);
+  }
+  let pairs = 0, sup = 0, cl = 0, sinh = 0, khac = 0;
+  for (const it of items) {
+    const ps = it.analysis.pairs;
+    ps.forEach((q) => { pairs++; if (support.has(q.star)) sup++; if (clash.has(q.star)) cl++; });
+    for (let k = 0; k < ps.length - 1; k++) {
+      const x = STARS[ps[k].star].element, y = STARS[ps[k + 1].star].element;
+      if (SINH[x] === y) sinh++; else if (KHAC[x] === y) khac++;
+    }
+  }
+  if (menh && pairs) add(sup / pairs >= 0.25 && cl / pairs <= 0.2, `Hợp mệnh ${menh.element}: ${Math.round((100 * sup) / pairs)}% cặp là sao hợp, ${Math.round((100 * cl) / pairs)}% cặp khắc mệnh`);
+  add(sinh >= khac, `Các từ trường nối theo chiều tương sinh (${sinh} lần sinh, ${khac} lần khắc)`);
+  const passed = checks.filter((c) => c.ok).length;
+  return { checks, matchScore: Math.round((100 * passed) / checks.length) };
 }
 
 /* ----------------------------------------------------------------- tiện ích ---- */
@@ -196,7 +328,7 @@ function buildDigits(rng, len, pool, ctx) {
         if (prevStar && STARS[prevStar].base < 0 && HEAL[prevStar]?.includes(star)) x *= 4;
         if (star === "SK" || star === "TY") x *= 1.4; // bổ sung Sinh khí, tăng cường Thiên y
         if (ctx.hungBoost && star === ctx.hungBoost && !isLast) x = Math.max(x, 1) * 6; // chủ động đưa hung tinh (kèm hóa thần) vào dãy
-        if (ctx.needs.has(star)) x *= 1.5;
+        x *= ctx.weights ? ctx.weights[star] ?? 1 : ctx.needs.has(star) ? 1.5 : 1;
         if (ctx.support.has(star)) x *= 1.3;
         if (ctx.clash.has(star)) x *= 0.5;
       }
@@ -247,6 +379,11 @@ function fitScore(a, len, ctx) {
     r += Math.min(8, bu);
   }
   if (ctx.profile) r += Math.min(6, [...ctx.profile.needs].filter((s) => c[s] > 0).length * 2);
+  if (ctx.weights) {
+    let wsum = 0;
+    for (const p of a.pairs) wsum += ((ctx.weights[p.star] ?? 1) - 1) * 2.5;
+    r += Math.max(-8, Math.min(10, wsum));
+  }
   return r;
 }
 
@@ -300,7 +437,13 @@ export function generateLucky(o) {
     const recentSt = own && own.length ? recentEnergy({ draws: [own], numbers: own }) : null;
     const rc = recentSt || recentAll;
     const needsSt = needsFor(rc);
-    const ctx = { allow05: !!o.allow05, anchorDigits: new Set(anchors.map((a) => a.digit)), needs: needsSt, support, clash, recent: rc, profile: profile ? { needs: needsSt } : null };
+    // Quy luật 8 sao của đài trong tối đa 8 kỳ (riêng đài nếu có, nếu không dùng số liệu chung) rồi đối chiếu với cá nhân.
+    const ownDraws = parsedRecent.stationDraws[name];
+    const drawsSrc = ownDraws && ownDraws.length ? ownDraws : parsedRecent.draws.length ? parsedRecent.draws : null;
+    const rule = stationRule(drawsSrc);
+    const plan = buildPlan(rule, profile, support, clash);
+    const weights = Object.fromEntries(STAR_ORDER.map((id) => [id, plan[id].weight]));
+    const ctx = { allow05: !!o.allow05, anchorDigits: new Set(anchors.map((a) => a.digit)), needs: needsSt, weights, support, clash, recent: rc, profile: profile ? { needs: needsSt } : null };
     const rng = mulberry32(fnv1a(`${cccdDigits}|${gender}|${iso}|${name}|${o.allow05 ? 1 : 0}|${o.variant || 0}|${rc ? rc.numbers : 0}`));
     const tiers = [];
     const coverage = Object.fromEntries(STAR_ORDER.map((id) => [id, 0]));
@@ -393,7 +536,7 @@ export function generateLucky(o) {
         }
       }
     }
-    groups.push({ station: name, anchors, tiers, coverage, recentSource: recentSt ? "station" : recentAll ? "all" : null, fullAll: STAR_ORDER.every((x) => coverage[x] > 0), fullCat: ["SK", "TY", "DN", "PV"].every((s) => coverage[s] > 0) });
+    groups.push({ station: name, anchors, tiers, coverage, recentSource: recentSt ? "station" : recentAll ? "all" : null, rule, plan, ...verifySet({ tiers, coverage, includeHung, profile, menh, support, clash, plan, rule }), fullAll: STAR_ORDER.every((x) => coverage[x] > 0), fullCat: ["SK", "TY", "DN", "PV"].every((s) => coverage[s] > 0) });
   }
   return { date, gender, includeHung, profile, menh, support: [...support], clash: [...clash], sinhTa, khacTa, needs: [...needs], recent, groups };
 }

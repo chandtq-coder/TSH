@@ -220,3 +220,64 @@ test("số may mắn: bao gồm cả 4 sao xấu, mỗi sao xấu đều có hó
   assert.equal(off.includeHung, false);
   assert.ok(off.groups.every((g) => g.fullCat));
 });
+
+import { stationRule, buildPlan, verifySet } from "../js/lucky.js";
+import { mulberry32 } from "../js/generator.js";
+
+// Tạo bảng kết quả giả lập theo đúng định dạng kqxs.vn (các đài xen kẽ theo cột) cho `days` kỳ.
+function fakeTable(stations, days, seed = 7) {
+  const rng = mulberry32(seed);
+  const num = (len) => Array.from({ length: len }, () => Math.floor(rng() * 10)).join("");
+  const rows = [["Giải tám", 1, 2], ["Giải bảy", 1, 3], ["Giải sáu", 3, 4], ["Giải năm", 1, 4], ["Giải tư", 7, 5], ["Giải ba", 2, 5], ["Giải nhì", 1, 5], ["Giải nhất", 1, 5], ["Đặc biệt", 1, 6]];
+  const blocks = [];
+  for (let d = 0; d < days; d++) {
+    const lines = [`Xổ số Miền Nam Thứ Bảy ${String(30 - d).padStart(2, "0")}-10-2026`, `Giải ${stations.join(" ")}`];
+    for (const [name, cnt, len] of rows) lines.push(`${name} ${Array.from({ length: cnt * stations.length }, () => num(len)).join(" . ")}`);
+    blocks.push(lines.join("\n"));
+  }
+  return blocks.join("\n\n");
+}
+
+test("quy luật 8 sao của từng đài từ 8 kỳ và đối chiếu cá nhân", () => {
+  const stations = ["TP. Hồ Chí Minh", "Long An", "Bình Phước", "Hậu Giang"];
+  const text = fakeTable(["Hồ Chí Minh", "Long An", "Bình Phước", "Hậu Giang"], 10); // dán 10 kỳ, chỉ lấy 8
+  const pr = parseRecent(text);
+  for (const st of stations) {
+    assert.equal(pr.stationDraws[st].length, 8, st);
+    assert.ok(pr.stationDraws[st].every((d) => d.length === 18));
+  }
+  const rule = stationRule(pr.stationDraws["Long An"]);
+  assert.equal(rule.draws, 8);
+  assert.equal(rule.dbTail.length, 8);
+  assert.ok(rule.trend && Object.keys(rule.state).length === 8);
+  const sum = Object.values(rule.share).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(sum - 1) < 1e-9);
+  assert.ok(Object.values(rule.state).every((x) => ["nổi", "vắng", "cân bằng"].includes(x)));
+  assert.equal(stationRule([]), null);
+
+  // Kế hoạch: sao cát đài đang vắng và cá nhân cũng cần thì trọng số cao nhất; hung tinh luôn < 1
+  const prof = analyzeCCCD("079088012345");
+  const fake = { state: Object.fromEntries(["SK", "TY", "DN", "PV", "HH", "TM", "NQ", "LS"].map((x) => [x, "cân bằng"])), trend: null };
+  fake.state.TY = "vắng"; fake.state.NQ = "nổi";
+  const plan = buildPlan(fake, prof, new Set(["SK"]), new Set(["DN"]));
+  assert.ok(plan.TY.weight > plan.DN.weight && plan.TY.weight >= 2);
+  assert.ok(["HH", "TM", "NQ", "LS"].every((h) => plan[h].weight < 1));
+  assert.ok(plan.SK.weight > plan.DN.weight); // SK hợp mệnh, DN khắc mệnh
+  assert.ok(plan.NQ.action.includes("hóa thần"));
+
+  const r = generateLucky({ cccd: "079088012345", date: new Date(2026, 10, 7), recentText: text });
+  for (const g of r.groups) {
+    assert.equal(g.rule.draws, 8);
+    assert.ok(g.matchScore >= 60 && g.matchScore <= 100, `${g.station} khớp ${g.matchScore}`);
+    assert.ok(g.checks.length >= 4 && g.checks[0].ok && g.checks[1].ok, g.station);
+    assert.equal(g.fullAll, true);
+    assert.equal(Object.keys(g.plan).length, 8);
+  }
+  // Có số liệu khác nhau thì bộ số khác nhau (quy luật thực sự tác động)
+  const r2 = generateLucky({ cccd: "079088012345", date: new Date(2026, 10, 7), recentText: fakeTable(["Hồ Chí Minh", "Long An", "Bình Phước", "Hậu Giang"], 8, 99) });
+  const flat = (x) => JSON.stringify(x.groups.map((g) => g.tiers.map((t) => t.items.map((i) => i.number))));
+  assert.notEqual(flat(r), flat(r2));
+  // Chưa dán kết quả: vẫn có kế hoạch theo cá nhân, không có quy luật
+  const none = generateLucky({ cccd: "079088012345", date: new Date(2026, 10, 7) });
+  assert.ok(none.groups.every((g) => g.rule === null && g.plan.TY.weight > 1));
+});

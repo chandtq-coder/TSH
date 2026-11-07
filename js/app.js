@@ -407,6 +407,30 @@ function prizeText(g) {
   return `Đài ${g.station}\n` + g.tiers.map((t) => `${t.name}: ${t.items.map((i) => i.number).join(" - ")}`).join("\n");
 }
 
+function ruleBlock(g) {
+  const pct = (x) => `${(x * 100).toFixed(1)}%`;
+  const stateTxt = { "nổi": "nổi ▲", "vắng": "vắng ▼", "cân bằng": "cân bằng" };
+  let head;
+  if (g.rule) {
+    const r = g.rule;
+    const db = r.dbTail.length ? `Sao đuôi giải đặc biệt các kỳ (mới → cũ): ${r.dbTail.map((x) => STARS[x].name).join(", ")}. ` : "";
+    head = `<p class="hint" style="margin-top:0">Quy luật trong <b>${r.draws} kỳ</b> gần nhất (${r.pairs} cặp số): hành vượng <b>${r.dominantElement}</b>; sao đuôi nhiều nhất <b>${STARS[r.tailTop].name}</b>. ${esc(db)}Mức cân bằng ngẫu nhiên là 12,5% mỗi sao.</p>`;
+  } else {
+    head = '<p class="hint" style="margin-top:0">Chưa có kết quả các kỳ gần nhất của đài này, nên mới đối chiếu theo hồ sơ cá nhân. Dán kết quả (tối đa 8 kỳ) để có quy luật 8 sao.</p>';
+  }
+  const rows = STAR_ORDER.map((id) => {
+    const q = g.plan[id];
+    const share = g.rule ? `${pct(g.rule.share[id])}${q.trend ? " · " + q.trend : ""}` : "";
+    const state = g.rule ? `<span class="badge neutral">${stateTxt[q.state]}</span>` : "";
+    return `<li class="rule-row"><div class="rr-top">${chip(id)}${state}<span class="muted">${esc(share)}</span><b class="nums rr-w" title="Trọng số khi sinh bộ số">×${q.weight.toFixed(1)}</b></div>
+      <p class="rr-line"><b>Cá nhân:</b> ${esc(q.personal)}</p><p class="rr-line">${esc(q.action)}</p></li>`;
+  }).join("");
+  const checks = `<ul class="flags" style="margin-top:10px">${g.checks.map((c) => `<li class="flag ${c.ok ? "good" : "warn"}"><span class="ico" aria-hidden="true">${c.ok ? "✓" : "!"}</span><div><p style="color:inherit;margin:0">${esc(c.text)}</p></div></li>`).join("")}</ul>`;
+  return `<details class="kdet rule-det"><summary>Quy luật 8 sao của đài & đối chiếu cá nhân · khớp ${g.matchScore}%</summary><div class="kbody">${head}
+    <ul class="rule-list">${rows}</ul>
+    <h4>Kiểm tra bộ số sau khi tạo</h4>${checks}</div></details>`;
+}
+
 function stationCard(g) {
   const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((a) => [a.digit, a])).values()].map((a) => `<span class="badge neutral">số ${a.digit}: ${esc(a.label)}</span>`).join("")}</div>` : "";
   const rows = g.tiers.map((t) => `<tr class="${t.key === "DB" ? "db" : ""}"><th scope="row">${esc(t.name)}<small>${t.digits} số${t.items.length > 1 ? ` × ${t.items.length}` : ""}</small></th>
@@ -414,6 +438,7 @@ function stationCard(g) {
   return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
     <table class="prize-table"><caption class="sr-only">Bộ số may mắn đài ${esc(g.station)}</caption><tbody>${rows}</tbody></table>
     ${g.recentSource ? `<p class="hint" style="margin:4px 0 0">${g.recentSource === "station" ? "Đã bù theo kết quả riêng của đài này trong các kỳ bạn dán." : "Đã bù theo kết quả chung các kỳ bạn dán (chưa có số liệu riêng của đài này)."}</p>` : ""}
+    ${ruleBlock(g)}
     <h4>Độ phủ các sao trong bộ số</h4>
     <div class="dist-legend">${STAR_ORDER.map((id) => g.coverage[id] ? chip(id, `${STARS[id].name} ×${g.coverage[id]}`) : `<span class="chip" style="--sc: var(--muted); opacity:.55"><i class="dot"></i>${STARS[id].name} ×0</span>`).join("")}</div>
     <p class="hint" style="margin-top:6px">${g.fullAll ? "✓ Đủ cả 8 sao: 4 cát tinh và 4 sao xấu (mỗi sao xấu đều có hóa thần đứng ngay sau)." : g.fullCat ? "✓ Đủ 4 cát tinh (không kèm sao xấu)." : "Chưa đủ sao – bấm “Bộ số khác”."}</p>
@@ -434,6 +459,7 @@ function basisPanel(r) {
   const heal = r.profile && r.profile.hung.length ? r.profile.hung.map((h) => `${STARS[h].name} (chế hóa bằng ${(HEAL[h] || []).map((x) => STARS[x].name).join("/")})`).join("; ") : "";
   rows.push(`<div class="row"><b>Bổ sung:</b> Sinh khí và Thiên y luôn được tăng cường; sao cần bù: ${r.needs.map((id) => chip(id)).join(" ")}</div>`);
   if (heal) rows.push(`<div class="row"><b>Hóa giải theo CCCD:</b> ${esc(heal)}</div>`);
+  rows.push("<div class=\"row\"><b>Quy trình:</b> (1) lấy quy luật 8 sao của từng đài trong tối đa 8 kỳ → (2) đối chiếu với hồ sơ cá nhân (CCCD, mệnh) để biết sao nào bổ sung, giữ hay hóa giải → (3) sinh bộ số theo trọng số đó → (4) kiểm tra lại và ghi độ khớp.</div>");
   rows.push("<div class=\"row\"><b>Ngũ hành:</b> các từ trường liền kề được chọn theo chiều tương sinh (Mộc → Hỏa → Thổ → Kim → Thủy → Mộc), tránh tương khắc.</div>");
   if (r.recent) {
     const nm = (ids) => (ids.length ? ids.map((id) => STARS[id].name).join(", ") : "không");
