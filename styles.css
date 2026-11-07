@@ -304,3 +304,17 @@ input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow
 
 .nav-in { grid-template-columns: repeat(6, 1fr); }
 .bottom-nav button { font-size: .66rem; padding-inline: 0; }
+
+.prize-table { width: 100%; border-collapse: collapse; }
+.prize-table th, .prize-table td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.prize-table th { text-align: left; font-size: .86rem; width: 34%; white-space: nowrap; }
+.prize-table th small { display: block; color: var(--muted); font-weight: 500; font-size: .74rem; }
+.prize-table td { display: table-cell; }
+.prize-table td > .pn-num { margin: 2px 6px 2px 0; }
+.pn-num { display: inline-block; font-family: var(--font-num); font-weight: 700; font-size: 1.12rem; letter-spacing: .08em; padding: 3px 9px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--surface2); }
+.pn-num.good { border-color: var(--good); }
+.pn-num.ok { border-color: var(--ok); }
+.pn-num.warn { border-color: var(--warn); }
+.prize-table tr.db th { color: var(--brand); }
+.prize-table tr.db .pn-num { font-size: 1.7rem; letter-spacing: .12em; background: var(--brand-soft); }
+@media (prefers-color-scheme: dark) { .prize-table tr.db th { color: var(--ink); } }

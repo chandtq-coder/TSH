@@ -74,22 +74,32 @@ test("đọc danh sách số kèm giá", () => {
   assert.deepEqual(l.map((x) => x.price), [1500000, 800000, null]);
 });
 
-import { generateLucky, stationsFor, XSMN } from "../js/lucky.js";
-test("số may mắn: đài theo thứ, 6 chữ số, tái lập, tùy chọn 0/5", () => {
+import { generateLucky, stationsFor, XSMN, PRIZES } from "../js/lucky.js";
+test("số may mắn: đúng cơ cấu giải miền Nam, tái lập, tùy chọn 0/5", () => {
   const sat = new Date(2026, 10, 7); // Thứ Bảy
   assert.deepEqual(stationsFor(sat), ["TP. Hồ Chí Minh", "Long An", "Bình Phước", "Hậu Giang"]);
   assert.equal(Object.values(XSMN).length, 7);
+  assert.equal(PRIZES.reduce((a, p) => a + p.count, 0), 18);
   const o = { cccd: "079088012345", date: sat, allow05: false };
   const r = generateLucky(o);
   assert.equal(r.groups.length, 4);
-  const all = r.groups.flatMap((g) => g.items.map((i) => i.number));
-  assert.equal(new Set(all).size, all.length);
-  for (const n of all) { assert.match(n, /^\d{6}$/); assert.ok(!/[05]/.test(n)); }
-  assert.deepEqual(generateLucky(o).groups.map((g) => g.items.map((i) => i.number)), r.groups.map((g) => g.items.map((i) => i.number)));
-  assert.notDeepEqual(generateLucky({ ...o, variant: 1 }).groups[0].items.map((i) => i.number), r.groups[0].items.map((i) => i.number));
-  const one = generateLucky({ ...o, station: "Long An" });
-  assert.equal(one.groups.length, 1); assert.equal(one.groups[0].items.length, 6);
   assert.equal(r.gender, "nam");
-  const w = generateLucky({ ...o, allow05: true });
-  assert.ok(w.groups.flatMap((g) => g.items).some((i) => /[05]/.test(i.number)) || true);
+  const want = { G8: [2, 1], G7: [3, 1], G6: [4, 3], G5: [4, 1], G4: [5, 7], G3: [5, 2], G2: [5, 1], G1: [5, 1], DB: [6, 1] };
+  for (const g of r.groups) {
+    assert.deepEqual(g.tiers.map((t) => t.key), Object.keys(want));
+    for (const t of g.tiers) {
+      assert.equal(t.items.length, want[t.key][1], `${g.station} ${t.key}`);
+      for (const it of t.items) { assert.equal(it.number.length, want[t.key][0]); assert.ok(!/[05]/.test(it.number)); }
+      assert.equal(new Set(t.items.map((i) => i.number)).size, t.items.length);
+    }
+  }
+  const dbs = r.groups.map((g) => g.tiers.at(-1).items[0].number);
+  assert.equal(new Set(dbs).size, dbs.length);
+  const flat = (x) => x.groups.map((g) => g.tiers.map((t) => t.items.map((i) => i.number)));
+  assert.deepEqual(flat(generateLucky(o)), flat(r));
+  assert.notDeepEqual(flat(generateLucky({ ...o, variant: 1 })), flat(r));
+  const one = generateLucky({ ...o, station: "Long An" });
+  assert.equal(one.groups.length, 1);
+  const w = generateLucky({ ...o, allow05: true, variant: 3 });
+  assert.ok(w.groups.flatMap((g) => g.tiers.flatMap((t) => t.items)).some((i) => /[05]/.test(i.number)));
 });

@@ -401,14 +401,20 @@ function renderStations() {
     .concat(names.map((n) => `<label><input type="radio" name="lstation" value="${esc(n)}"${n === prev ? " checked" : ""}><span>${esc(n)}</span></label>`)).join("");
 }
 
-function luckyCard(it, groupStation) {
-  const anchors = it.hit.length ? `<div class="anchors">${it.hit.map((h) => `<span class="badge neutral">số ${h.digit}: ${esc(h.label)}</span>`).join("")}</div>` : "";
-  const chain = it.analysis.pairs.map((p) => chip(p.star, `${STARS[p.star].name} ${p.text}`)).join("");
-  return `<article class="num-card" data-num="${it.number}">
-    <div class="nc-top"><span class="lucky-num" aria-label="Bộ số ${it.number.split("").join(" ")}">${it.formatted}</span>
-      <span class="badge ${toneBadge(it.analysis.level.tone)}">${it.analysis.total} · ${it.analysis.level.label}</span></div>
-    <div class="nc-chain">${chain}</div>${anchors}
-    <div class="nc-actions"><button type="button" class="btn ghost" data-act="copy">Sao chép</button></div></article>`;
+const scoreTone = (t) => (t >= 70 ? "good" : t >= 56 ? "ok" : "warn");
+
+function prizeText(g) {
+  return `Đài ${g.station}\n` + g.tiers.map((t) => `${t.name}: ${t.items.map((i) => i.number).join(" - ")}`).join("\n");
+}
+
+function stationCard(g) {
+  const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((a) => [a.digit, a])).values()].map((a) => `<span class="badge neutral">số ${a.digit}: ${esc(a.label)}</span>`).join("")}</div>` : "";
+  const rows = g.tiers.map((t) => `<tr class="${t.key === "DB" ? "db" : ""}"><th scope="row">${esc(t.name)}<small>${t.digits} số${t.items.length > 1 ? ` × ${t.items.length}` : ""}</small></th>
+    <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
+  return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
+    <table class="prize-table"><caption class="sr-only">Bộ số may mắn đài ${esc(g.station)}</caption><tbody>${rows}</tbody></table>
+    ${anchors}<p class="legend" style="margin-top:10px">Viền xanh: điểm Bát tinh cao · viền vàng: khá · viền cam: trung bình. Di chuột/giữ vào số để xem điểm.</p>
+    <div class="nc-actions"><button type="button" class="btn ghost" data-copyset="${esc(prizeText(g))}">Sao chép cả bộ</button></div></section>`;
 }
 
 let luckyVariant = 0;
@@ -423,8 +429,8 @@ function runLucky(bump = false) {
   const station = $('input[name="lstation"]:checked')?.value || "";
   const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant });
   const gtxt = r.gender === "nam" ? "Nam" : r.gender === "nu" ? "Nữ" : "";
-  let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Cùng thông tin, bộ số mặc định giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
-  html += r.groups.map((g) => `<div class="station-title"><h3>Đài ${esc(g.station)}</h3><span class="muted">${g.items.length} bộ số</span></div>${g.items.map((it) => luckyCard(it, g.station)).join("")}`).join("");
+  let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Mỗi đài một bộ số đủ cơ cấu giải (giải tám 2 số → giải đặc biệt 6 số). Cùng thông tin, kết quả giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
+  html += r.groups.map(stationCard).join("");
   html += `<p class="disclaimer"><b>Lưu ý:</b> xổ số hoàn toàn ngẫu nhiên, không có bộ số nào làm tăng khả năng trúng. Các bộ số trên chỉ là gợi ý giải trí, chọn theo cặp số cát của Bát tinh cùng các “số neo” từ ngày và CCCD của bạn. Chỉ mua vé của các công ty xổ số được cấp phép, trong khả năng tài chính; không dành cho người dưới 18 tuổi.</p>`;
   $("#lucky-result").innerHTML = html;
   $("#lucky-more").hidden = false;
@@ -440,6 +446,11 @@ function initLucky() {
   $("#lucky-date").addEventListener("change", renderStations);
   $("#lucky-form").addEventListener("submit", (e) => { e.preventDefault(); luckyVariant = 0; runLucky(false); });
   $("#lucky-more").addEventListener("click", () => runLucky(true));
+  $("#lucky-result").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-copyset]");
+    if (!b) return;
+    copyText(b.dataset.copyset).then((ok) => { const old = b.textContent; b.textContent = ok ? "Đã sao chép ✓" : "Không sao chép được"; setTimeout(() => (b.textContent = old), 1400); });
+  });
 }
 
 /* ------------------------------------------------------------------ chấm điểm danh sách ---- */
