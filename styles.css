@@ -301,3 +301,6 @@ input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow
 .anchors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .anchors .badge { font-weight: 600; }
 #lucky-result { scroll-margin-top: 84px; }
+
+.nav-in { grid-template-columns: repeat(6, 1fr); }
+.bottom-nav button { font-size: .66rem; padding-inline: 0; }

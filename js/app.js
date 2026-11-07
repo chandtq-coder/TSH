@@ -382,15 +382,6 @@ function onDelegatedClick(e) {
 /* ------------------------------------------------------------------ số may mắn (xổ số miền Nam) ---- */
 const todayISO = () => { const d = new Date(); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 
-function setSuggestPanel(which) {
-  $$("#tab-suggest .seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.sg === which)));
-  $("#sg-phone").hidden = which !== "phone";
-  $("#sg-lucky").hidden = which !== "lucky";
-  if (which === "lucky") {
-    if (!$("#lucky-cccd").value && state.cccdForSuggest) { $("#lucky-cccd").value = formatInput("cccd", state.cccdForSuggest); syncLuckyGender(); }
-  }
-}
-
 function syncLuckyGender() {
   const d = digitsOnly($("#lucky-cccd").value);
   if (d.length !== 12) return;
@@ -530,6 +521,7 @@ function renderAbout() {
   <section class="card"><h3>Ứng dụng này làm gì?</h3>
     <ul><li><b>Tra cứu:</b> phân tích SĐT, CCCD (12 số) hoặc dãy số bất kỳ theo 8 từ trường Bát tinh.</li>
     <li><b>Đề xuất SĐT:</b> tạo các số 10 chữ số có đầu số đúng của Viettel, VinaPhone, MobiFone, Vietnamobile, Gmobile, iTel, Wintel; có thể cá nhân hóa theo CCCD để bù hung tinh.</li>
+    <li><b>May mắn:</b> bộ số 6 chữ số cho xổ số miền Nam theo CCCD, giới tính, ngày và đài (chỉ mang tính giải trí).</li>
     <li><b>Chấm số:</b> dán danh sách số (kèm giá) lấy từ trang nhà mạng/đại lý để lọc và xếp hạng theo Bát tinh.</li>
     <li><b>Kiến thức:</b> bảng cặp số, quy tắc 0/5, hóa giải, tổ hợp hai sao.</li></ul></section>
   <section class="card"><h3>Nguồn và cách tính</h3>
@@ -557,7 +549,7 @@ function renderAbout() {
 }
 
 /* ------------------------------------------------------------------ điều hướng ---- */
-const TABS = ["lookup", "suggest", "list", "learn", "about"];
+const TABS = ["lookup", "suggest", "list", "lucky", "learn", "about"];
 function setTab(tab, { updateHash = true } = {}) {
   if (!TABS.includes(tab)) tab = "lookup";
   state.tab = tab;
@@ -565,6 +557,7 @@ function setTab(tab, { updateHash = true } = {}) {
   $$(".bottom-nav button").forEach((b) => { if (b.dataset.tab === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
   if (updateHash && location.hash !== `#${tab}`) history.replaceState(null, "", `#${tab}`);
   if (tab === "suggest") renderFavs();
+  if (tab === "lucky" && !$("#lucky-cccd").value && state.cccdForSuggest) { $("#lucky-cccd").value = formatInput("cccd", state.cccdForSuggest); syncLuckyGender(); }
   window.scrollTo({ top: 0 });
 }
 
@@ -576,7 +569,6 @@ function init() {
   $("#goal").innerHTML = Object.entries(GOALS).map(([k, g]) => `<option value="${k}">${esc(g.label)}</option>`).join("");
 
   $$("#tab-lookup .seg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-  $$("#tab-suggest .seg button").forEach((b) => b.addEventListener("click", () => setSuggestPanel(b.dataset.sg)));
   initLucky();
   bindNumberInput($("#lookup-input"), () => state.mode, () => MODES[state.mode].max);
   bindNumberInput($("#compat-input"), "cccd", 12);
