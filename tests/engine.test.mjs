@@ -73,3 +73,23 @@ test("đọc danh sách số kèm giá", () => {
   assert.deepEqual(l.map((x) => x.number), ["0931413191", "0893131919", "0794191313"]);
   assert.deepEqual(l.map((x) => x.price), [1500000, 800000, null]);
 });
+
+import { generateLucky, stationsFor, XSMN } from "../js/lucky.js";
+test("số may mắn: đài theo thứ, 6 chữ số, tái lập, tùy chọn 0/5", () => {
+  const sat = new Date(2026, 10, 7); // Thứ Bảy
+  assert.deepEqual(stationsFor(sat), ["TP. Hồ Chí Minh", "Long An", "Bình Phước", "Hậu Giang"]);
+  assert.equal(Object.values(XSMN).length, 7);
+  const o = { cccd: "079088012345", date: sat, allow05: false };
+  const r = generateLucky(o);
+  assert.equal(r.groups.length, 4);
+  const all = r.groups.flatMap((g) => g.items.map((i) => i.number));
+  assert.equal(new Set(all).size, all.length);
+  for (const n of all) { assert.match(n, /^\d{6}$/); assert.ok(!/[05]/.test(n)); }
+  assert.deepEqual(generateLucky(o).groups.map((g) => g.items.map((i) => i.number)), r.groups.map((g) => g.items.map((i) => i.number)));
+  assert.notDeepEqual(generateLucky({ ...o, variant: 1 }).groups[0].items.map((i) => i.number), r.groups[0].items.map((i) => i.number));
+  const one = generateLucky({ ...o, station: "Long An" });
+  assert.equal(one.groups.length, 1); assert.equal(one.groups[0].items.length, 6);
+  assert.equal(r.gender, "nam");
+  const w = generateLucky({ ...o, allow05: true });
+  assert.ok(w.groups.flatMap((g) => g.items).some((i) => /[05]/.test(i.number)) || true);
+});

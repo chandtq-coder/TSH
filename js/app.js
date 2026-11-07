@@ -2,6 +2,7 @@ import { STARS, STAR_ORDER, FIELD_LABELS, DOMAINS, COMBOS, HEAL, HEAL_NUMBERS, C
 import { CARRIERS, carrierById } from "./carriers.js";
 import { analyze, analyzePhone, analyzeCCCD, compatibility, formatPhone, digitsOnly, normalizePhone, summarize, levelOf } from "./engine.js";
 import { parseList, fmtPrice } from "./listparse.js";
+import { generateLucky, stationsFor, parseDateInput, dateLabel, WEEKDAYS, XSMN } from "./lucky.js";
 import { GOALS, generateForCarrier, generateAll, carrierPrefixInfo } from "./generator.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -229,7 +230,7 @@ function runLookup() {
 function setMode(mode) {
   state.mode = mode;
   const m = MODES[mode];
-  $$(".seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.mode === mode)));
+  $$("#tab-lookup .seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.mode === mode)));
   $("#lookup-label").textContent = m.label;
   const inp = $("#lookup-input");
   inp.placeholder = m.placeholder;
@@ -378,6 +379,78 @@ function onDelegatedClick(e) {
   }
 }
 
+/* ------------------------------------------------------------------ số may mắn (xổ số miền Nam) ---- */
+const todayISO = () => { const d = new Date(); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+
+function setSuggestPanel(which) {
+  $$("#tab-suggest .seg button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.sg === which)));
+  $("#sg-phone").hidden = which !== "phone";
+  $("#sg-lucky").hidden = which !== "lucky";
+  if (which === "lucky") {
+    if (!$("#lucky-cccd").value && state.cccdForSuggest) { $("#lucky-cccd").value = formatInput("cccd", state.cccdForSuggest); syncLuckyGender(); }
+  }
+}
+
+function syncLuckyGender() {
+  const d = digitsOnly($("#lucky-cccd").value);
+  if (d.length !== 12) return;
+  const g = analyzeCCCD(d).info.gender;
+  const r = $(`input[name="lgender"][value="${g || ""}"]`);
+  if (r) r.checked = true;
+}
+
+function renderStations() {
+  const date = parseDateInput($("#lucky-date").value);
+  const box = $("#lucky-stations");
+  if (!date) { box.innerHTML = ""; $("#lucky-weekday").textContent = "—"; return; }
+  $("#lucky-weekday").textContent = dateLabel(date);
+  const prev = $('input[name="lstation"]:checked')?.value ?? "";
+  const names = stationsFor(date);
+  box.innerHTML = [`<label><input type="radio" name="lstation" value=""${prev === "" || !names.includes(prev) ? " checked" : ""}><span>Tất cả đài trong ngày</span></label>`]
+    .concat(names.map((n) => `<label><input type="radio" name="lstation" value="${esc(n)}"${n === prev ? " checked" : ""}><span>${esc(n)}</span></label>`)).join("");
+}
+
+function luckyCard(it, groupStation) {
+  const anchors = it.hit.length ? `<div class="anchors">${it.hit.map((h) => `<span class="badge neutral">số ${h.digit}: ${esc(h.label)}</span>`).join("")}</div>` : "";
+  const chain = it.analysis.pairs.map((p) => chip(p.star, `${STARS[p.star].name} ${p.text}`)).join("");
+  return `<article class="num-card" data-num="${it.number}">
+    <div class="nc-top"><span class="lucky-num" aria-label="Bộ số ${it.number.split("").join(" ")}">${it.formatted}</span>
+      <span class="badge ${toneBadge(it.analysis.level.tone)}">${it.analysis.total} · ${it.analysis.level.label}</span></div>
+    <div class="nc-chain">${chain}</div>${anchors}
+    <div class="nc-actions"><button type="button" class="btn ghost" data-act="copy">Sao chép</button></div></article>`;
+}
+
+let luckyVariant = 0;
+function runLucky(bump = false) {
+  const err = $("#lucky-error");
+  setError(err, "");
+  const date = parseDateInput($("#lucky-date").value);
+  if (!date) { setError(err, "Hãy chọn ngày dự thưởng."); return; }
+  const cccd = digitsOnly($("#lucky-cccd").value);
+  if (cccd && cccd.length !== 12) { setError(err, "CCCD cần đủ 12 số (hoặc để trống)."); return; }
+  if (bump) luckyVariant++;
+  const station = $('input[name="lstation"]:checked')?.value || "";
+  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant });
+  const gtxt = r.gender === "nam" ? "Nam" : r.gender === "nu" ? "Nữ" : "";
+  let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Cùng thông tin, bộ số mặc định giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
+  html += r.groups.map((g) => `<div class="station-title"><h3>Đài ${esc(g.station)}</h3><span class="muted">${g.items.length} bộ số</span></div>${g.items.map((it) => luckyCard(it, g.station)).join("")}`).join("");
+  html += `<p class="disclaimer"><b>Lưu ý:</b> xổ số hoàn toàn ngẫu nhiên, không có bộ số nào làm tăng khả năng trúng. Các bộ số trên chỉ là gợi ý giải trí, chọn theo cặp số cát của Bát tinh cùng các “số neo” từ ngày và CCCD của bạn. Chỉ mua vé của các công ty xổ số được cấp phép, trong khả năng tài chính; không dành cho người dưới 18 tuổi.</p>`;
+  $("#lucky-result").innerHTML = html;
+  $("#lucky-more").hidden = false;
+  $("#lucky-result").scrollIntoView({ behavior: "auto", block: "start" });
+}
+
+function initLucky() {
+  $("#lucky-date").value = todayISO();
+  renderStations();
+  $("#lucky-schedule").innerHTML = `<table class="k-table"><thead><tr><th>Thứ</th><th>Các đài</th></tr></thead><tbody>${[1, 2, 3, 4, 5, 6, 0].map((k) => `<tr><td><b>${WEEKDAYS[k]}</b></td><td>${XSMN[k].map(esc).join(", ")}</td></tr>`).join("")}</tbody></table><p class="hint">Lịch có thể thay đổi theo quyết định của các công ty xổ số; hãy đối chiếu với thông báo chính thức.</p>`;
+  bindNumberInput($("#lucky-cccd"), "cccd", 12);
+  $("#lucky-cccd").addEventListener("input", () => { state.cccdForSuggest = null; syncLuckyGender(); });
+  $("#lucky-date").addEventListener("change", renderStations);
+  $("#lucky-form").addEventListener("submit", (e) => { e.preventDefault(); luckyVariant = 0; runLucky(false); });
+  $("#lucky-more").addEventListener("click", () => runLucky(true));
+}
+
 /* ------------------------------------------------------------------ chấm điểm danh sách ---- */
 function runList() {
   const err = $("#list-error");
@@ -502,7 +575,9 @@ function init() {
     .concat(CARRIERS.map((c) => `<label><input type="radio" name="carrier" value="${c.id}"><span>${esc(c.name)}</span></label>`)).join("");
   $("#goal").innerHTML = Object.entries(GOALS).map(([k, g]) => `<option value="${k}">${esc(g.label)}</option>`).join("");
 
-  $$(".seg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  $$("#tab-lookup .seg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  $$("#tab-suggest .seg button").forEach((b) => b.addEventListener("click", () => setSuggestPanel(b.dataset.sg)));
+  initLucky();
   bindNumberInput($("#lookup-input"), () => state.mode, () => MODES[state.mode].max);
   bindNumberInput($("#compat-input"), "cccd", 12);
   bindNumberInput($("#suggest-cccd"), "cccd", 12);

@@ -290,3 +290,14 @@ textarea:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3p
 .rank { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); font-size: .78rem; font-weight: 700; margin-right: 8px; }
 a.btn { text-decoration: none; }
 #list-result { scroll-margin-top: 84px; }
+
+.seg2 { grid-template-columns: repeat(2, 1fr); }
+input[type="date"] { width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface2); color: var(--ink); font-size: 1.05rem; font-family: inherit; }
+input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
+.weekday-box { margin: 0; min-height: 52px; display: flex; align-items: center; padding: 0 14px; border-radius: 12px; border: 1.5px dashed var(--line); font-weight: 700; }
+.lucky-num { font-family: var(--font-num); font-size: 2rem; font-weight: 700; letter-spacing: .14em; line-height: 1.1; }
+.station-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 20px 2px 8px; }
+.station-title h3 { font-size: 1.1rem; }
+.anchors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.anchors .badge { font-weight: 600; }
+#lucky-result { scroll-margin-top: 84px; }

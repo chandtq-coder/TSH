@@ -75,6 +75,12 @@
     <section id="tab-suggest" class="tab" aria-labelledby="h-suggest" hidden>
       <h2 id="h-suggest" class="sr-only">Đề xuất số điện thoại</h2>
 
+      <div class="seg seg2" role="radiogroup" aria-label="Loại đề xuất">
+        <button type="button" role="radio" aria-checked="true" data-sg="phone">Số điện thoại</button>
+        <button type="button" role="radio" aria-checked="false" data-sg="lucky">Số may mắn (xổ số)</button>
+      </div>
+
+      <div id="sg-phone">
       <form id="suggest-form" class="card form" novalidate autocomplete="off">
         <fieldset class="chips-field">
           <legend>Nhà mạng</legend>
@@ -128,6 +134,55 @@
         <summary>Số đã lưu <span id="fav-count" class="badge neutral">0</span></summary>
         <div id="fav-list"></div>
       </details>
+      </div>
+
+      <div id="sg-lucky" hidden>
+        <form id="lucky-form" class="card form" novalidate autocomplete="off">
+          <label for="lucky-cccd">CCCD 12 số của bạn</label>
+          <input id="lucky-cccd" class="numinput" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="079 0 88 012345" maxlength="20">
+          <p class="hint">Bộ số được cá nhân hóa theo CCCD (giới tính, năm sinh, hung/cát tinh cần bù). Chỉ xử lý trên máy bạn, không lưu. Có thể bỏ trống.</p>
+
+          <fieldset class="chips-field">
+            <legend>Giới tính <span class="muted">(tự lấy từ CCCD nếu có)</span></legend>
+            <div class="radio-chips">
+              <label><input type="radio" name="lgender" value="" checked><span>Không nêu</span></label>
+              <label><input type="radio" name="lgender" value="nam"><span>Nam</span></label>
+              <label><input type="radio" name="lgender" value="nu"><span>Nữ</span></label>
+            </div>
+          </fieldset>
+
+          <div class="grid2" style="margin-top:14px">
+            <div>
+              <label for="lucky-date">Ngày dự thưởng</label>
+              <input id="lucky-date" type="date">
+            </div>
+            <div>
+              <label>Thứ</label>
+              <p id="lucky-weekday" class="weekday-box" aria-live="polite"></p>
+            </div>
+          </div>
+
+          <fieldset class="chips-field">
+            <legend>Đài xổ số miền Nam</legend>
+            <div id="lucky-stations" class="radio-chips"></div>
+          </fieldset>
+
+          <label class="check"><input type="checkbox" id="lucky-05"><span>Cho phép số 0 và 5 trong bộ số</span></label>
+
+          <div class="actions">
+            <button type="submit" class="btn primary">Tạo bộ số may mắn</button>
+            <button type="button" id="lucky-more" class="btn ghost" hidden>Bộ số khác</button>
+          </div>
+          <p id="lucky-error" class="error" role="alert" hidden></p>
+        </form>
+
+        <div id="lucky-result" aria-live="polite"></div>
+
+        <details class="kdet">
+          <summary>Lịch mở thưởng xổ số miền Nam theo thứ</summary>
+          <div class="kbody" id="lucky-schedule"></div>
+        </details>
+      </div>
     </section>
 
     <!-- ============ CHẤM ĐIỂM DANH SÁCH ============ -->
