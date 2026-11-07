@@ -413,6 +413,7 @@ function stationCard(g) {
     <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
   return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
     <table class="prize-table"><caption class="sr-only">Bộ số may mắn đài ${esc(g.station)}</caption><tbody>${rows}</tbody></table>
+    ${g.recentSource ? `<p class="hint" style="margin:4px 0 0">${g.recentSource === "station" ? "Đã bù theo kết quả riêng của đài này trong các kỳ bạn dán." : "Đã bù theo kết quả chung các kỳ bạn dán (chưa có số liệu riêng của đài này)."}</p>` : ""}
     <h4>Độ phủ các sao trong bộ số</h4>
     <div class="dist-legend">${STAR_ORDER.map((id) => g.coverage[id] ? chip(id, `${STARS[id].name} ×${g.coverage[id]}`) : `<span class="chip" style="--sc: var(--muted); opacity:.55"><i class="dot"></i>${STARS[id].name} ×0</span>`).join("")}</div>
     <p class="hint" style="margin-top:6px">${g.fullCat ? "✓ Đủ cả 4 cát tinh: Sinh khí, Thiên y, Diên niên, Phục vị." : "Chưa đủ 4 cát tinh – bấm “Bộ số khác”."}</p>

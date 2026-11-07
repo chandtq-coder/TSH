@@ -160,3 +160,41 @@ test("số may mắn: đủ cát tinh, ưu tiên Sinh khí/Thiên y, mệnh và 
   const flat = (x) => JSON.stringify(x.groups.map((g) => g.tiers.map((t) => t.items.map((i) => i.number))));
   assert.notEqual(flat(a), flat(r)); // kết quả dán vào thực sự làm thay đổi bộ số
 });
+
+// Bảng sao chép từ kqxs.vn ngày 07/11/2026 (các đài xen kẽ theo cột; thứ tự hàng trong giải sáu/tư có thể đảo).
+const KQXS = `Xổ số Miền Nam Thứ Bảy 07-11-2026
+Giải Hồ Chí Minh Long An Bình Phước Hậu Giang
+Giải tám 29 . 34 . 15 . 12
+Giải bảy 420 . 043 . 452 . 588
+Giải sáu 0266 . 3047 . 7360 . 0888 . 2100 . 5424 . 8893 . 8989 . 1387 . 8644 . 0656 . 2419
+Giải năm 8011 . 3176 . 0819 . 5930
+Giải tư 59607 . 55861 . 00262 . 18088 . 01765 . 27204 . 86244 . 86849 . 75842 . 99408 . 97075 . 01468 . 66679 . 31803 . 73219 . 84172 . 16758 . 26262 . 41507 . 14145 . 93007 . 57269 . 01695 . 38373 . 06509 . 35611 . 37465 . 36171
+Giải ba 75058 . 26706 . 35520 . 59274 . 41762 . 18007 . 06275 . 73306
+Giải nhì 57040 . 92892 . 75545 . 01910
+Giải nhất 66219 . 20048 . 64229 . 63848
+Đặc biệt 274588 . 471941 . 508805 . 830635
+0 1 2 3 4 5 6 7 8 9
+Lô tô Hồ Chí Minh Thứ Bảy 07-11-2026 00 07 07 09 11 19 20 29 40
+
+Xổ số Miền Nam Thứ Sáu 06-11-2026
+Giải Vĩnh Long Bình Dương Trà Vinh
+Giải tám 11 . 22 . 33
+Đặc biệt 123456 . 234567 . 345678`;
+test("đọc bảng nhiều đài từ kqxs.vn và tách riêng từng đài", () => {
+  const pr = parseRecent(KQXS);
+  assert.equal(pr.draws.length, 2);
+  assert.equal(pr.byStation["TP. Hồ Chí Minh"].filter((_, i) => i < 18).length, 18);
+  const hcm = pr.byStation["TP. Hồ Chí Minh"];
+  assert.ok(hcm.includes("274588") && hcm.includes("29") && hcm.includes("06509") && !hcm.includes("471941"));
+  assert.ok(pr.byStation["Long An"].includes("471941") && pr.byStation["Long An"].includes("34"));
+  assert.ok(pr.byStation["Hậu Giang"].includes("830635") && pr.byStation["Hậu Giang"].includes("36171"));
+  assert.ok(pr.byStation["Vĩnh Long"].includes("123456") && pr.byStation["Trà Vinh"].includes("345678"));
+  assert.equal(new Set(pr.byStation["Bình Phước"].slice(0, 18)).size, 18);
+  const r = generateLucky({ cccd: "079088012345", date: new Date(2026, 10, 7), recentText: KQXS });
+  assert.deepEqual(r.groups.map((g) => g.recentSource), ["station", "station", "station", "station"]);
+  const mon = generateLucky({ date: new Date(2026, 10, 9), recentText: KQXS }); // Thứ Hai: chỉ TP.HCM có số liệu riêng
+  assert.deepEqual(mon.groups.map((g) => g.recentSource), ["station", "all", "all"]);
+  const tue = generateLucky({ date: new Date(2026, 10, 10), recentText: KQXS }); // Thứ Ba: không đài nào có số liệu riêng
+  assert.ok(tue.groups.every((g) => g.recentSource === "all"));
+  assert.ok(generateLucky({ date: new Date(2026, 10, 10) }).groups.every((g) => g.recentSource === null));
+});

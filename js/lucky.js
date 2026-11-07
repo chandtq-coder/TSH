@@ -60,13 +60,55 @@ export function supportFor(element) {
 }
 
 /* ----------------------------------------------------------------- kết quả các kỳ gần nhất ---- */
-// Đọc văn bản dán vào: các kỳ ngăn cách bằng dòng trống hoặc dòng có ngày (dd/mm/yyyy). Tối đa 8 kỳ, kỳ mới nhất ở trên.
+// Đọc văn bản dán vào: các kỳ ngăn cách bằng dòng trống hoặc dòng bắt đầu "Xổ số…"/"Kỳ…". Tối đa 8 kỳ, kỳ mới nhất ở trên.
+// Nhận ra bảng nhiều đài sao chép từ trang kết quả (tiêu đề "Giải <đài> <đài> …", mỗi hàng giải xếp xen kẽ theo cột đài,
+// ví dụ "Giải tám 29 . 34 . 15 . 12") và tách số liệu riêng từng đài; nếu không nhận ra thì gom mọi dãy 2–6 chữ số.
+const normName = (x) => String(x).toLowerCase().replace(/^tp\.?\s*/, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const STATION_ALIASES = { "tp hcm": "TP. Hồ Chí Minh", hcm: "TP. Hồ Chí Minh", "hồ chí minh": "TP. Hồ Chí Minh", "bà rịa vũng tàu": "Vũng Tàu", "lâm đồng": "Đà Lạt" };
+const ALL_STATIONS = [...new Set(Object.values(XSMN).flat())];
+const PRIZE_ROW = /^\s*(?:giải\s*)?(đặc biệt|dac biet|tám|tam|bảy|bay|sáu|sau|năm|nam|tư|tu|ba|nhì|nhi|nhất|nhat|đb|db)(?![\p{L}\p{N}])(.*)$/iu;
+const PRIZE_COUNT = { "tám": 1, tam: 1, "bảy": 1, bay: 1, "sáu": 3, sau: 3, "năm": 1, nam: 1, "tư": 7, tu: 7, ba: 2, "nhì": 1, nhi: 1, "nhất": 1, nhat: 1, "đặc biệt": 1, "dac biet": 1, "đb": 1, db: 1 };
+
+function stationsInLine(line) {
+  const n = normName(line);
+  const found = [];
+  const names = [...ALL_STATIONS.map((x) => [x, normName(x)]), ...Object.entries(STATION_ALIASES).map(([a, x]) => [x, a])];
+  for (const [canon, key] of names) {
+    const i = n.indexOf(key);
+    if (i >= 0 && !found.some((f) => f.canon === canon)) found.push({ canon, i });
+  }
+  return found.sort((a, b) => a.i - b.i).map((f) => f.canon);
+}
+
 export function parseRecent(text, maxDraws = 8) {
   const clean = String(text || "").replace(/\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/g, "\n");
-  const blocks = clean.split(/\n\s*\n|\n(?=\s*(?:kỳ|ky|xổ số|xo so)\b)/i).map((b) => b.trim()).filter(Boolean);
-  const draws = blocks.slice(0, maxDraws).map((b) => (b.match(/(?<![\w])\d{2,6}(?![\w])/g) || []));
-  const kept = draws.filter((d) => d.length);
-  return { draws: kept, numbers: kept.flat() };
+  const blocks = clean.split(/\n\s*\n|\n(?=\s*(?:kỳ|ky|xổ số|xo so)(?![\p{L}\p{N}]))/iu).map((b) => b.trim()).filter(Boolean).slice(0, maxDraws);
+  const draws = [];
+  const byStation = {};
+  for (const b of blocks) {
+    const lines = b.split(/\n/);
+    const header = lines.map(stationsInLine).find((st) => st.length >= 2);
+    let nums = [];
+    if (header) {
+      const per = Object.fromEntries(header.map((h) => [h, []]));
+      for (const line of lines) {
+        const m = PRIZE_ROW.exec(line);
+        if (!m) continue;
+        const toks = m[2].match(/(?<![\w])\d{2,6}(?![\w])/g) || [];
+        const need = (PRIZE_COUNT[m[1].toLowerCase()] || 1) * header.length;
+        if (toks.length !== need) continue;
+        toks.forEach((t, i) => per[header[i % header.length]].push(t));
+      }
+      for (const [st, arr] of Object.entries(per)) {
+        if (!arr.length) continue;
+        (byStation[st] ||= []).push(...arr);
+        nums.push(...arr);
+      }
+    }
+    if (!nums.length) nums = b.match(/(?<![\w])\d{2,6}(?![\w])/g) || [];
+    if (nums.length) draws.push(nums);
+  }
+  return { draws, numbers: draws.flat(), byStation };
 }
 
 export function recentEnergy(parsed) {
@@ -224,14 +266,21 @@ export function generateLucky(o) {
   const gender = o.gender || profile?.info.gender || null;
   const menh = profile ? menhOf(profile.info.birthYear) : null;
   const { support, clash, sinhTa, khacTa } = menh ? supportFor(menh.element) : { support: new Set(), clash: new Set() };
-  const recent = recentEnergy(parseRecent(o.recentText));
+  const parsedRecent = parseRecent(o.recentText);
+  const recentAll = recentEnergy(parsedRecent);
+  const recent = recentAll;
 
   // Sao cần bổ sung/hóa giải: từ CCCD, từ kết quả các kỳ gần nhất, và luôn nhấn Sinh khí – Thiên y.
-  const needs = new Set(["SK", "TY", ...(profile?.needs || [])]);
-  if (recent) {
-    recent.weakCat.forEach((s) => needs.add(s));
-    recent.hungDominant.forEach((h) => (HEAL[h] || []).forEach((s) => needs.add(s)));
-  }
+  const baseNeeds = ["SK", "TY", ...(profile?.needs || [])];
+  const needsFor = (rc) => {
+    const set = new Set(baseNeeds);
+    if (rc) {
+      rc.weakCat.forEach((x) => set.add(x));
+      rc.hungDominant.forEach((h) => (HEAL[h] || []).forEach((x) => set.add(x)));
+    }
+    return set;
+  };
+  const needs = needsFor(recentAll);
 
   const stations = stationsFor(date);
   const targets = o.station ? [o.station] : stations;
@@ -242,8 +291,13 @@ export function generateLucky(o) {
   for (const name of targets) {
     const idx = Math.max(0, stations.indexOf(name));
     const anchors = anchorsFor(date, idx, profile?.info.birthYear).filter((a) => pool.includes(a.digit));
-    const ctx = { allow05: !!o.allow05, anchorDigits: new Set(anchors.map((a) => a.digit)), needs, support, clash, recent, profile: profile ? { needs } : null };
-    const rng = mulberry32(fnv1a(`${cccdDigits}|${gender}|${iso}|${name}|${o.allow05 ? 1 : 0}|${o.variant || 0}|${recent ? recent.numbers : 0}`));
+    // Nếu kết quả dán vào có số liệu riêng của đài này thì dùng riêng, nếu không dùng năng lượng chung.
+    const own = parsedRecent.byStation[name];
+    const recentSt = own && own.length ? recentEnergy({ draws: [own], numbers: own }) : null;
+    const rc = recentSt || recentAll;
+    const needsSt = needsFor(rc);
+    const ctx = { allow05: !!o.allow05, anchorDigits: new Set(anchors.map((a) => a.digit)), needs: needsSt, support, clash, recent: rc, profile: profile ? { needs: needsSt } : null };
+    const rng = mulberry32(fnv1a(`${cccdDigits}|${gender}|${iso}|${name}|${o.allow05 ? 1 : 0}|${o.variant || 0}|${rc ? rc.numbers : 0}`));
     const tiers = [];
     const coverage = Object.fromEntries(STAR_ORDER.map((id) => [id, 0]));
     const pools = {};
@@ -307,7 +361,7 @@ export function generateLucky(o) {
         }
       }
     }
-    groups.push({ station: name, anchors, tiers, coverage, fullCat: ["SK", "TY", "DN", "PV"].every((s) => coverage[s] > 0) });
+    groups.push({ station: name, anchors, tiers, coverage, recentSource: recentSt ? "station" : recentAll ? "all" : null, fullCat: ["SK", "TY", "DN", "PV"].every((s) => coverage[s] > 0) });
   }
   return { date, gender, profile, menh, support: [...support], clash: [...clash], sinhTa, khacTa, needs: [...needs], recent, groups };
 }
