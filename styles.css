@@ -318,3 +318,5 @@ input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow
 .prize-table tr.db th { color: var(--brand); }
 .prize-table tr.db .pn-num { font-size: 1.7rem; letter-spacing: .12em; background: var(--brand-soft); }
 @media (prefers-color-scheme: dark) { .prize-table tr.db th { color: var(--ink); } }
+
+.pn-num.has-hung { border-style: dashed; }

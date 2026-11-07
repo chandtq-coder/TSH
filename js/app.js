@@ -410,14 +410,14 @@ function prizeText(g) {
 function stationCard(g) {
   const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((a) => [a.digit, a])).values()].map((a) => `<span class="badge neutral">số ${a.digit}: ${esc(a.label)}</span>`).join("")}</div>` : "";
   const rows = g.tiers.map((t) => `<tr class="${t.key === "DB" ? "db" : ""}"><th scope="row">${esc(t.name)}<small>${t.digits} số${t.items.length > 1 ? ` × ${t.items.length}` : ""}</small></th>
-    <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
+    <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}${i.analysis.pairs.some((p) => STARS[p.star].base < 0) ? " has-hung" : ""}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
   return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
     <table class="prize-table"><caption class="sr-only">Bộ số may mắn đài ${esc(g.station)}</caption><tbody>${rows}</tbody></table>
     ${g.recentSource ? `<p class="hint" style="margin:4px 0 0">${g.recentSource === "station" ? "Đã bù theo kết quả riêng của đài này trong các kỳ bạn dán." : "Đã bù theo kết quả chung các kỳ bạn dán (chưa có số liệu riêng của đài này)."}</p>` : ""}
     <h4>Độ phủ các sao trong bộ số</h4>
     <div class="dist-legend">${STAR_ORDER.map((id) => g.coverage[id] ? chip(id, `${STARS[id].name} ×${g.coverage[id]}`) : `<span class="chip" style="--sc: var(--muted); opacity:.55"><i class="dot"></i>${STARS[id].name} ×0</span>`).join("")}</div>
-    <p class="hint" style="margin-top:6px">${g.fullCat ? "✓ Đủ cả 4 cát tinh: Sinh khí, Thiên y, Diên niên, Phục vị." : "Chưa đủ 4 cát tinh – bấm “Bộ số khác”."}</p>
-    ${anchors}<p class="legend" style="margin-top:10px">Viền xanh: điểm Bát tinh cao · viền vàng: khá · viền cam: trung bình. Di chuột/giữ vào số để xem điểm.</p>
+    <p class="hint" style="margin-top:6px">${g.fullAll ? "✓ Đủ cả 8 sao: 4 cát tinh và 4 sao xấu (mỗi sao xấu đều có hóa thần đứng ngay sau)." : g.fullCat ? "✓ Đủ 4 cát tinh (không kèm sao xấu)." : "Chưa đủ sao – bấm “Bộ số khác”."}</p>
+    ${anchors}<p class="legend" style="margin-top:10px">Viền xanh: điểm Bát tinh cao · vàng: khá · cam: trung bình · viền nét đứt: có sao xấu đã được hóa giải. Di chuột/giữ vào số để xem điểm.</p>
     <div class="nc-actions"><button type="button" class="btn ghost" data-copyset="${esc(prizeText(g))}">Sao chép cả bộ</button></div></section>`;
 }
 
@@ -453,7 +453,7 @@ function runLucky(bump = false) {
   if (cccd && cccd.length !== 12) { setError(err, "CCCD cần đủ 12 số (hoặc để trống)."); return; }
   if (bump) luckyVariant++;
   const station = $('input[name="lstation"]:checked')?.value || "";
-  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, recentText: $("#lucky-recent").value });
+  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, includeHung: $("#lucky-hung").checked, recentText: $("#lucky-recent").value });
   const gtxt = r.gender === "nam" ? "Nam" : r.gender === "nu" ? "Nữ" : "";
   let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Mỗi đài một bộ số đủ cơ cấu giải (giải tám 2 số → giải đặc biệt 6 số). Cùng thông tin, kết quả giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
   html += basisPanel(r) + r.groups.map(stationCard).join("");

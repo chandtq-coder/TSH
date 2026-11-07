@@ -6,6 +6,7 @@ import { analyze, analyzeCCCD, digitsOnly, pairStar } from "./engine.js";
 import { mulberry32 } from "./generator.js";
 import { STARS, STAR_ORDER, CAT, HEAL } from "./data.js";
 
+export const HUNG_IDS = ["HH", "TM", "NQ", "LS"];
 export const WEEKDAYS = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
 // Lịch mở thưởng xổ số miền Nam theo thứ (khóa = Date.getDay()). Có thể thay đổi theo quyết định của các công ty xổ số.
@@ -194,6 +195,7 @@ function buildDigits(rng, len, pool, ctx) {
         else x = isLast ? 0 : len >= 5 ? 0.35 : 0.15; // hung tinh chỉ để chờ hóa thần đứng sau
         if (prevStar && STARS[prevStar].base < 0 && HEAL[prevStar]?.includes(star)) x *= 4;
         if (star === "SK" || star === "TY") x *= 1.4; // bổ sung Sinh khí, tăng cường Thiên y
+        if (ctx.hungBoost && star === ctx.hungBoost && !isLast) x = Math.max(x, 1) * 6; // chủ động đưa hung tinh (kèm hóa thần) vào dãy
         if (ctx.needs.has(star)) x *= 1.5;
         if (ctx.support.has(star)) x *= 1.3;
         if (ctx.clash.has(star)) x *= 0.5;
@@ -257,6 +259,7 @@ function fitScore(a, len, ctx) {
  * @param {string} [o.station]     tên đài; rỗng = tất cả đài trong ngày
  * @param {boolean} [o.allow05]
  * @param {number} [o.variant]
+ * @param {boolean} [o.includeHung] mặc định true: bộ số có đủ cả 4 hung tinh, mỗi hung tinh kèm hóa thần
  * @param {string} [o.recentText]  kết quả các kỳ gần nhất do người dùng dán (tối đa 8 kỳ)
  */
 export function generateLucky(o) {
@@ -266,6 +269,7 @@ export function generateLucky(o) {
   const gender = o.gender || profile?.info.gender || null;
   const menh = profile ? menhOf(profile.info.birthYear) : null;
   const { support, clash, sinhTa, khacTa } = menh ? supportFor(menh.element) : { support: new Set(), clash: new Set() };
+  const includeHung = o.includeHung !== false; // mặc định bao gồm cả sao xấu (luôn kèm hóa thần)
   const parsedRecent = parseRecent(o.recentText);
   const recentAll = recentEnergy(parsedRecent);
   const recent = recentAll;
@@ -343,25 +347,53 @@ export function generateLucky(o) {
       });
       tiers.push({ ...prize, items: picked });
     }
-    // Bảo đảm đủ 4 cát tinh trong cả bộ: nếu thiếu, thay dãy xếp thấp nhất của giải tư/sáu/ba bằng dãy có sao còn thiếu.
-    for (let pass = 0; pass < 2; pass++) {
-      for (const need of ["SK", "TY", "DN", "PV"]) {
+    // Bảo đảm độ phủ: đủ 4 cát tinh; nếu bật "bao gồm sao xấu" thì đủ cả Họa hại, Tuyệt mệnh, Ngũ quỷ, Lục sát,
+    // mỗi hung tinh đều nằm trong dãy có hóa thần đứng ngay sau. Thay từng dãy sao cho không làm mất sao đã có.
+    const required = ["SK", "TY", "DN", "PV", ...(includeHung ? HUNG_IDS : [])];
+    const hungPools = {};
+    const hungPool = (star, len) => {
+      const k = `${star}${len}`;
+      if (hungPools[k]) return hungPools[k];
+      const found = new Map();
+      for (let i = 0; i < 500; i++) {
+        const num = buildDigits(rng, len, pool, { ...ctx, hungBoost: star });
+        if (found.has(num)) continue;
+        const a = analyze(num, { gender });
+        if (!a.pairs.some((q) => q.star === star && q.healed)) continue;
+        const hit = anchors.filter((x, i2) => num.includes(x.digit) && anchors.findIndex((y) => y.digit === x.digit) === i2);
+        found.set(num, { number: num, analysis: a, rank: fitScore(a, len, ctx) + rng() * 6, hit });
+      }
+      return (hungPools[k] = [...found.values()].sort((x, y) => y.rank - x.rank));
+    };
+    for (let pass = 0; pass < 4; pass++) {
+      for (const need of required) {
         if (coverage[need] > 0) continue;
-        for (const key of ["G4", "G6", "G3"]) {
+        let done = false;
+        for (const key of ["G4", "G6", "G3", "G5"]) {
           const t = tiers.find((x) => x.key === key);
-          const cand = pools[key].find((c) => !t.items.includes(c) && !takenAcross.has(`${t.digits}:${c.number}`) && c.analysis.counts[need] > 0);
-          if (!cand) continue;
-          const old = t.items[t.items.length - 1];
-          old.analysis.pairs.forEach((q) => coverage[q.star]--);
-          cand.analysis.pairs.forEach((q) => coverage[q.star]++);
-          takenAcross.delete(`${t.digits}:${old.number}`);
-          takenAcross.add(`${t.digits}:${cand.number}`);
-          t.items[t.items.length - 1] = cand;
-          break;
+          const list = HUNG_IDS.includes(need) ? hungPool(need, t.digits) : pools[key];
+          for (const cand of list) {
+            if (t.items.some((it) => it.number === cand.number) || takenAcross.has(`${t.digits}:${cand.number}`)) continue;
+            for (let slot = t.items.length - 1; slot >= 0; slot--) {
+              const old = t.items[slot];
+              const next = { ...coverage };
+              old.analysis.pairs.forEach((q) => next[q.star]--);
+              cand.analysis.pairs.forEach((q) => next[q.star]++);
+              if (next[need] <= 0 || !required.every((x) => coverage[x] <= 0 || next[x] > 0)) continue;
+              Object.assign(coverage, next);
+              takenAcross.delete(`${t.digits}:${old.number}`);
+              takenAcross.add(`${t.digits}:${cand.number}`);
+              t.items[slot] = cand;
+              done = true;
+              break;
+            }
+            if (done) break;
+          }
+          if (done) break;
         }
       }
     }
-    groups.push({ station: name, anchors, tiers, coverage, recentSource: recentSt ? "station" : recentAll ? "all" : null, fullCat: ["SK", "TY", "DN", "PV"].every((s) => coverage[s] > 0) });
+    groups.push({ station: name, anchors, tiers, coverage, recentSource: recentSt ? "station" : recentAll ? "all" : null, fullAll: STAR_ORDER.every((x) => coverage[x] > 0), fullCat: ["SK", "TY", "DN", "PV"].every((s) => coverage[s] > 0) });
   }
-  return { date, gender, profile, menh, support: [...support], clash: [...clash], sinhTa, khacTa, needs: [...needs], recent, groups };
+  return { date, gender, includeHung, profile, menh, support: [...support], clash: [...clash], sinhTa, khacTa, needs: [...needs], recent, groups };
 }

@@ -198,3 +198,25 @@ test("đọc bảng nhiều đài từ kqxs.vn và tách riêng từng đài", (
   assert.ok(tue.groups.every((g) => g.recentSource === "all"));
   assert.ok(generateLucky({ date: new Date(2026, 10, 10) }).groups.every((g) => g.recentSource === null));
 });
+
+test("số may mắn: bao gồm cả 4 sao xấu, mỗi sao xấu đều có hóa thần; tắt được", () => {
+  const o = { cccd: "079088012345", date: new Date(2026, 10, 7) };
+  const r = generateLucky(o);
+  assert.equal(r.includeHung, true);
+  for (const g of r.groups) {
+    assert.equal(g.fullAll, true, g.station);
+    const items = g.tiers.flatMap((t) => t.items);
+    for (const h of ["HH", "TM", "NQ", "LS"]) {
+      assert.ok(g.coverage[h] > 0, `${g.station} thiếu ${h}`);
+      assert.ok(items.some((i) => i.analysis.pairs.some((p) => p.star === h && p.healed)), `${g.station} ${h} chưa có hóa thần`);
+    }
+    // vẫn đủ 4 cát tinh và giải đặc biệt không bị hy sinh
+    assert.ok(["SK", "TY", "DN", "PV"].every((s) => g.coverage[s] > 0));
+    const db = g.tiers.at(-1).items[0].analysis;
+    assert.ok(db.counts.SK > 0 && db.counts.TY > 0 && db.counts.DN > 0);
+    assert.equal(g.tiers.reduce((a, t) => a + t.items.length, 0), 18);
+  }
+  const off = generateLucky({ ...o, includeHung: false });
+  assert.equal(off.includeHung, false);
+  assert.ok(off.groups.every((g) => g.fullCat));
+});
