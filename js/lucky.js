@@ -397,6 +397,7 @@ function fitScore(a, len, ctx) {
  * @param {boolean} [o.allow05]
  * @param {number} [o.variant]
  * @param {boolean} [o.includeHung] mặc định true: bộ số có đủ cả 4 hung tinh, mỗi hung tinh kèm hóa thần
+ * @param {object} [o.recent]      kết quả đã dựng sẵn (vd. từ kqxs.js); ưu tiên hơn recentText
  * @param {string} [o.recentText]  kết quả các kỳ gần nhất do người dùng dán (tối đa 8 kỳ)
  */
 export function generateLucky(o) {
@@ -407,7 +408,7 @@ export function generateLucky(o) {
   const menh = profile ? menhOf(profile.info.birthYear) : null;
   const { support, clash, sinhTa, khacTa } = menh ? supportFor(menh.element) : { support: new Set(), clash: new Set() };
   const includeHung = o.includeHung !== false; // mặc định bao gồm cả sao xấu (luôn kèm hóa thần)
-  const parsedRecent = parseRecent(o.recentText);
+  const parsedRecent = o.recent || parseRecent(o.recentText); // o.recent: dữ liệu tự động tải (cùng cấu trúc với parseRecent)
   const recentAll = recentEnergy(parsedRecent);
   const recent = recentAll;
 

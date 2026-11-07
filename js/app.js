@@ -2,6 +2,7 @@ import { STARS, STAR_ORDER, FIELD_LABELS, DOMAINS, COMBOS, HEAL, HEAL_NUMBERS, C
 import { CARRIERS, carrierById } from "./carriers.js";
 import { analyze, analyzePhone, analyzeCCCD, compatibility, formatPhone, digitsOnly, normalizePhone, summarize, levelOf } from "./engine.js";
 import { parseList, fmtPrice } from "./listparse.js";
+import { fetchRecent, SOURCE_NAME, SOURCE_URL } from "./kqxs.js";
 import { generateLucky, stationsFor, parseDateInput, dateLabel, WEEKDAYS, XSMN } from "./lucky.js";
 import { GOALS, generateForCarrier, generateAll, carrierPrefixInfo } from "./generator.js";
 
@@ -447,7 +448,7 @@ function stationCard(g) {
 }
 
 let luckyVariant = 0;
-function basisPanel(r) {
+function basisPanel(r, src = null) {
   const rows = [];
   if (r.menh) {
     const sup = r.support.map((id) => STARS[id].name).join(", ") || "—";
@@ -461,6 +462,14 @@ function basisPanel(r) {
   if (heal) rows.push(`<div class="row"><b>Hóa giải theo CCCD:</b> ${esc(heal)}</div>`);
   rows.push("<div class=\"row\"><b>Quy trình:</b> (1) lấy quy luật 8 sao của từng đài trong tối đa 8 kỳ → (2) đối chiếu với hồ sơ cá nhân (CCCD, mệnh) để biết sao nào bổ sung, giữ hay hóa giải → (3) sinh bộ số theo trọng số đó → (4) kiểm tra lại và ghi độ khớp.</div>");
   rows.push("<div class=\"row\"><b>Ngũ hành:</b> các từ trường liền kề được chọn theo chiều tương sinh (Mộc → Hỏa → Thổ → Kim → Thủy → Mộc), tránh tương khắc.</div>");
+  const dm = (iso) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+  if (src?.mode === "auto") {
+    const when = src.updatedAt ? new Date(src.updatedAt).toLocaleString("vi-VN") : "";
+    const lat = Object.entries(src.recent.latest || {}).map(([n, d]) => `${esc(n)} ${dm(d)}`).join(", ");
+    rows.push(`<div class="row"><b>Nguồn kết quả:</b> tự động từ <a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">${SOURCE_NAME}</a>${when ? ` (cập nhật ${esc(when)})` : ""}. Kỳ mới nhất theo đài: ${lat || "—"}. Dữ liệu từ bên thứ ba, chưa phải nguồn chính thức – hãy đối chiếu trên trang của công ty xổ số.</div>`);
+  } else if (src?.mode === "manual") {
+    rows.push('<div class="row"><b>Nguồn kết quả:</b> do bạn dán thủ công.</div>');
+  }
   if (r.recent) {
     const nm = (ids) => (ids.length ? ids.map((id) => STARS[id].name).join(", ") : "không");
     rows.push(`<div class="row"><b>Kết quả gần đây:</b> đã đọc ${r.recent.draws} kỳ, ${r.recent.numbers} dãy số. Cát tinh còn yếu: ${esc(nm(r.recent.weakCat))}. Hung tinh nổi: ${esc(nm(r.recent.hungDominant))}. Bộ số được bù theo đó.</div>`);
@@ -470,7 +479,8 @@ function basisPanel(r) {
   return `<section class="card"><h3>Cơ sở của bộ số</h3><div class="remedy">${rows.join("")}</div></section>`;
 }
 
-function runLucky(bump = false) {
+let luckyToken = 0;
+async function runLucky(bump = false) {
   const err = $("#lucky-error");
   setError(err, "");
   const date = parseDateInput($("#lucky-date").value);
@@ -479,10 +489,41 @@ function runLucky(bump = false) {
   if (cccd && cccd.length !== 12) { setError(err, "CCCD cần đủ 12 số (hoặc để trống)."); return; }
   if (bump) luckyVariant++;
   const station = $('input[name="lstation"]:checked')?.value || "";
-  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, includeHung: $("#lucky-hung").checked, recentText: $("#lucky-recent").value });
+  const token = ++luckyToken;
+  const status = $("#lucky-auto-status");
+  const pasted = $("#lucky-recent").value.trim();
+  let recent = null;
+  let src = null;
+  if (pasted) {
+    src = { mode: "manual" };
+    status.textContent = "";
+  } else if ($("#lucky-auto").checked) {
+    const btn = $('#lucky-form button[type="submit"]');
+    btn.disabled = true;
+    status.textContent = "Đang tải kết quả các kỳ gần nhất…";
+    try {
+      const res = await fetchRecent({ stations: station ? [station] : stationsFor(date), beforeISO: $("#lucky-date").value, max: 8 });
+      if (token !== luckyToken) return;
+      if (res.recent.numbers.length) {
+        recent = res.recent;
+        src = { mode: "auto", ...res };
+        const n = Object.keys(res.recent.stationDraws).length;
+        status.textContent = `Đã lấy tự động ${n} đài từ ${SOURCE_NAME}${res.failed.length ? ` (không tải được: ${res.failed.join(", ")})` : ""}.`;
+      } else {
+        status.textContent = "Không lấy được kết quả tự động. Bộ số vẫn được tạo theo hồ sơ cá nhân; bạn có thể dán kết quả thủ công.";
+      }
+    } catch {
+      status.textContent = "Không lấy được kết quả tự động (kiểm tra kết nối mạng). Bộ số vẫn được tạo theo hồ sơ cá nhân.";
+    } finally {
+      btn.disabled = false;
+    }
+  } else {
+    status.textContent = "";
+  }
+  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, includeHung: $("#lucky-hung").checked, recent, recentText: pasted ? $("#lucky-recent").value : "" });
   const gtxt = r.gender === "nam" ? "Nam" : r.gender === "nu" ? "Nữ" : "";
   let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Mỗi đài một bộ số đủ cơ cấu giải (giải tám 2 số → giải đặc biệt 6 số). Cùng thông tin, kết quả giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
-  html += basisPanel(r) + r.groups.map(stationCard).join("");
+  html += basisPanel(r, src) + r.groups.map(stationCard).join("");
   html += `<p class="disclaimer"><b>Lưu ý:</b> xổ số hoàn toàn ngẫu nhiên, không có bộ số nào làm tăng khả năng trúng. Các bộ số trên chỉ là gợi ý giải trí, chọn theo cặp số cát của Bát tinh cùng các “số neo” từ ngày và CCCD của bạn. Chỉ mua vé của các công ty xổ số được cấp phép, trong khả năng tài chính; không dành cho người dưới 18 tuổi.</p>`;
   $("#lucky-result").innerHTML = html;
   $("#lucky-more").hidden = false;
@@ -591,7 +632,8 @@ function renderAbout() {
     <p>Quy tắc, cặp số, mô tả từng sao và 64 tổ hợp lấy từ giáo trình “Thần Số Học Phương Đông” (100 trang) do bạn cung cấp. Chuỗi sao của ví dụ 13957230123 trong sách được tái hiện đúng.</p>
     <p>Điểm 0–100 là <b>quy ước của ứng dụng</b> để so sánh: cát tinh cộng, hung tinh trừ theo cấp và vị trí (ba số cuối nặng nhất), thưởng khi hung tinh có hóa thần, phạt khi đuôi 0/5, nhiều số 0, thiếu Sinh khí/Thiên y, hoặc toàn cát. Sách không đưa ra thang điểm.</p></section>
   <section class="card"><h3>Quyền riêng tư</h3>
-    <p>Mọi tính toán chạy ngay trên thiết bị. Ứng dụng không gửi số điện thoại hay CCCD đi đâu và <b>không lưu CCCD</b>. Chỉ danh sách SĐT bạn bấm “Lưu” được giữ trong bộ nhớ trình duyệt.</p></section>
+    <p>Mọi tính toán chạy ngay trên thiết bị. Ứng dụng không gửi số điện thoại hay CCCD đi đâu và <b>không lưu CCCD</b>. Chỉ danh sách SĐT bạn bấm “Lưu” được giữ trong bộ nhớ trình duyệt.</p>
+    <p>Riêng tab May mắn, khi bật “Tự động lấy kết quả”, ứng dụng gửi yêu cầu GET tới tệp JSON công khai của <a href="https://383.im/" target="_blank" rel="noopener noreferrer">383.im</a> (như mọi trang web, nguồn này thấy địa chỉ IP và trình duyệt của bạn), tuyệt đối không kèm CCCD hay dữ liệu cá nhân. Điều khoản của họ: <a href="https://383.im/terms-of-service/" target="_blank" rel="noopener noreferrer">383.im/terms-of-service</a>.</p></section>
   <section class="card"><h3>Lưu ý quan trọng</h3>
     <ul><li>Thần số học phương đông là tín ngưỡng/văn hóa dân gian, <b>không có cơ sở khoa học</b>. Các nhận định về sức khỏe, tiền bạc, hôn nhân chỉ để tham khảo, không thay lời khuyên chuyên môn.</li>
     <li>Số đề xuất là số tạo theo quy tắc, <b>chưa kiểm tra còn hàng</b>. Cần kiểm tra và đăng ký thuê bao qua kênh chính thức của nhà mạng (ví dụ cửa hàng giao dịch hoặc đại lý ủy quyền).</li>

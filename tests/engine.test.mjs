@@ -281,3 +281,33 @@ test("quy luật 8 sao của từng đài từ 8 kỳ và đối chiếu cá nh�
   const none = generateLucky({ cccd: "079088012345", date: new Date(2026, 10, 7) });
   assert.ok(none.groups.every((g) => g.rule === null && g.plan.TY.weight > 1));
 });
+
+import { readFileSync } from "node:fs";
+import { buildRecent, drawNumbers, SLUGS } from "../js/kqxs.js";
+const FX = JSON.parse(readFileSync(new URL("./fixtures/383.json", import.meta.url), "utf8"));
+
+test("tự động lấy kết quả: ghép lịch sử với live.json, đủ 18 dãy, đúng thứ tự giải", () => {
+  assert.equal(Object.keys(SLUGS).length, 21);
+  const provinces = { "Long An": FX.longAn, "TP. Hồ Chí Minh": FX.hcm };
+  const rc = buildRecent(provinces, FX.live, "2026-11-14", 8);
+  const la = rc.stationDraws["Long An"];
+  assert.equal(la.length, 8);
+  assert.ok(la.every((d) => d.length === 18));
+  assert.equal(rc.latest["Long An"], "2026-11-07"); // kỳ 07/11 lấy từ live.json vì tệp lịch sử chưa có
+  assert.equal(la[0][17], "471941"); // giải đặc biệt Long An 07/11/2026 (khớp ảnh kết quả)
+  assert.equal(la[0][0], "34"); // giải tám
+  assert.equal(la[1][17], "351678"); // kỳ 31/10/2026 từ tệp lịch sử
+  // TP.HCM 07/11 trong live chưa đủ 18 dãy nên bị bỏ; kỳ gần nhất là 02/11
+  assert.equal(rc.latest["TP. Hồ Chí Minh"], "2026-11-02");
+  // Chỉ lấy các kỳ trước ngày chọn
+  const before = buildRecent(provinces, FX.live, "2026-11-07", 8);
+  assert.equal(before.latest["Long An"], "2026-10-31");
+  assert.equal(drawNumbers({ g8: ["1"] }), null);
+  // Dùng trực tiếp trong bộ sinh số, tách riêng từng đài
+  const r = generateLucky({ cccd: "079088012345", date: new Date(2026, 10, 14), recent: rc });
+  const byName = Object.fromEntries(r.groups.map((g) => [g.station, g]));
+  assert.equal(byName["Long An"].recentSource, "station");
+  assert.equal(byName["Long An"].rule.draws, 8);
+  assert.equal(byName["Bình Phước"].recentSource, "all"); // chưa có số liệu riêng → dùng chung
+  assert.ok(byName["Long An"].dbTail === undefined && byName["Long An"].rule.dbTail.length === 8);
+});
