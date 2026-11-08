@@ -311,3 +311,40 @@ test("tự động lấy kết quả: ghép lịch sử với live.json, đủ 1
   assert.equal(byName["Bình Phước"].recentSource, "all"); // chưa có số liệu riêng → dùng chung
   assert.ok(byName["Long An"].dbTail === undefined && byName["Long An"].rule.dbTail.length === 8);
 });
+
+import { generateStatistical } from "../js/lucky.js";
+test("chế độ thống kê: không hạn chế Bát tinh, đủ cơ cấu giải, dùng mọi chữ số, không trùng các kỳ đã ra", () => {
+  const rc = buildRecent({ "Long An": FX.longAn, "TP. Hồ Chí Minh": FX.hcm }, FX.live, "2026-11-14", 8);
+  const o = { cccd: "079088012345", date: new Date(2026, 10, 14), mode: "stat", recent: rc };
+  const r = generateLucky(o); // generateLucky chuyển sang chế độ thống kê khi mode = "stat"
+  assert.equal(r.mode, "stat");
+  assert.equal(r.groups.length, 4);
+  const want = { G8: [2, 1], G7: [3, 1], G6: [4, 3], G5: [4, 1], G4: [5, 7], G3: [5, 2], G2: [5, 1], G1: [5, 1], DB: [6, 1] };
+  const all = [];
+  for (const g of r.groups) {
+    assert.equal(g.mode, "stat");
+    for (const t of g.tiers) {
+      assert.equal(t.items.length, want[t.key][1], `${g.station} ${t.key}`);
+      for (const i of t.items) { assert.equal(i.number.length, want[t.key][0]); all.push(i.number); }
+    }
+  }
+  assert.ok(all.some((n) => /0/.test(n)) && all.some((n) => /5/.test(n))); // 0 và 5 không bị loại
+  const la = r.groups.find((g) => g.station === "Long An");
+  assert.equal(la.recentSource, "station");
+  assert.equal(la.stat.draws, 8);
+  const seen = new Set(rc.stationDraws["Long An"].flat());
+  assert.ok(la.tiers.flatMap((t) => t.items).every((i) => !seen.has(i.number))); // không trùng dãy đã ra
+  assert.equal(la.stat.topTails.length, 5);
+  const bs = r.groups.find((g) => g.station === "Bình Phước");
+  assert.equal(bs.recentSource, "all");
+  // tái lập; đổi biến thể thì khác; không có dữ liệu thì vẫn tạo được theo cá nhân
+  const flat = (x) => JSON.stringify(x.groups.map((g) => g.tiers.map((t) => t.items.map((i) => i.number))));
+  assert.equal(flat(generateStatistical(o)), flat(r));
+  assert.notEqual(flat(generateLucky({ ...o, variant: 1 })), flat(r));
+  const none = generateLucky({ ...o, recent: undefined });
+  assert.ok(none.groups.every((g) => g.stat === null && g.recentSource === null && g.tiers.length === 9));
+  // khác chế độ Bát tinh: kết quả không còn ép đủ sao
+  const bt = generateLucky({ ...o, mode: "bat_tinh" });
+  assert.equal(bt.groups[0].fullAll, true);
+  assert.notEqual(flat(bt), flat(r));
+});

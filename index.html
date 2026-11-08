@@ -163,6 +163,13 @@
             <div id="lucky-stations" class="radio-chips"></div>
           </fieldset>
 
+          <label for="lucky-mode" style="margin-top:14px">Cách chọn số</label>
+          <select id="lucky-mode">
+            <option value="bat_tinh">Theo Bát tinh – đủ 8 sao, hóa giải, ngũ hành</option>
+            <option value="stat">Theo thống kê 8 kỳ – không hạn chế Bát tinh</option>
+          </select>
+          <p id="lucky-mode-hint" class="hint"></p>
+
           <label class="check"><input type="checkbox" id="lucky-auto" checked><span>Tự động lấy kết quả 8 kỳ gần nhất của đài <span class="muted">(dữ liệu công khai từ 383.im, không cần chép tay)</span></span></label>
           <p id="lucky-auto-status" class="hint" aria-live="polite"></p>
 

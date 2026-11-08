@@ -408,6 +408,20 @@ function prizeText(g) {
   return `Đài ${g.station}\n` + g.tiers.map((t) => `${t.name}: ${t.items.map((i) => i.number).join(" - ")}`).join("\n");
 }
 
+function statCard(g) {
+  const rows = g.tiers.map((t) => `<tr class="${t.key === "DB" ? "db" : ""}"><th scope="row">${esc(t.name)}<small>${t.digits} số${t.items.length > 1 ? ` × ${t.items.length}` : ""}</small></th>
+    <td>${t.items.map((i) => `<span class="pn-num">${i.number}</span>`).join("")}</td></tr>`).join("");
+  const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((x) => [x.digit, x])).values()].map((x) => `<span class="badge neutral">số ${x.digit}: ${esc(x.label)}</span>`).join("")}</div>` : "";
+  const s = g.stat;
+  const info = s
+    ? `<p class="hint" style="margin:10px 0 0">Thống kê <b>${s.draws} kỳ</b> gần nhất${g.recentSource === "all" ? " (số liệu chung, chưa có riêng đài này)" : " của đài"}: chữ số ra nhiều nhất <b>${esc(s.hotDigits.join(", "))}</b>, ít nhất <b>${esc(s.coldDigits.join(", "))}</b>; hai số cuối ra nhiều: <b>${esc(s.topTails.join(", "))}</b>.</p>`
+    : '<p class="hint" style="margin:10px 0 0">Chưa có kết quả các kỳ gần nhất của đài này nên số được chọn đều theo hồ sơ cá nhân (ngày, năm sinh).</p>';
+  return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
+    <table class="prize-table"><caption class="sr-only">Bộ số theo thống kê đài ${esc(g.station)}</caption><tbody>${rows}</tbody></table>
+    ${info}${anchors}
+    <div class="nc-actions"><button type="button" class="btn ghost" data-copyset="${esc(prizeText(g))}">Sao chép cả bộ</button></div></section>`;
+}
+
 function ruleBlock(g) {
   const pct = (x) => `${(x * 100).toFixed(1)}%`;
   const stateTxt = { "nổi": "nổi ▲", "vắng": "vắng ▼", "cân bằng": "cân bằng" };
@@ -433,6 +447,7 @@ function ruleBlock(g) {
 }
 
 function stationCard(g) {
+  if (g.mode === "stat") return statCard(g);
   const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((a) => [a.digit, a])).values()].map((a) => `<span class="badge neutral">số ${a.digit}: ${esc(a.label)}</span>`).join("")}</div>` : "";
   const rows = g.tiers.map((t) => `<tr class="${t.key === "DB" ? "db" : ""}"><th scope="row">${esc(t.name)}<small>${t.digits} số${t.items.length > 1 ? ` × ${t.items.length}` : ""}</small></th>
     <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}${i.analysis.pairs.some((p) => STARS[p.star].base < 0) ? " has-hung" : ""}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
@@ -479,6 +494,15 @@ function basisPanel(r, src = null) {
   return `<section class="card"><h3>Cơ sở của bộ số</h3><div class="remedy">${rows.join("")}</div></section>`;
 }
 
+function statBasis(r, src) {
+  const rows = ["<div class=\"row\"><b>Chế độ thống kê:</b> không hạn chế theo Bát tinh – dùng mọi chữ số 0–9. Chữ số xuất hiện nhiều ở đúng vị trí (tính từ cuối) trong 8 kỳ gần nhất của từng đài có xác suất cao hơn; ngày dự thưởng và năm sinh là “số neo”; không trùng dãy đã ra.</div>"];
+  if (src?.mode === "auto") rows.push(`<div class="row"><b>Nguồn kết quả:</b> tự động từ <a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">${SOURCE_NAME}</a>; dữ liệu bên thứ ba, hãy đối chiếu với nguồn chính thức.</div>`);
+  else if (src?.mode === "manual") rows.push('<div class="row"><b>Nguồn kết quả:</b> do bạn dán thủ công.</div>');
+  else rows.push('<div class="row muted">Chưa có kết quả các kỳ gần nhất; số chỉ theo hồ sơ cá nhân.</div>');
+  rows.push("<div class=\"row\"><b>Kiểm chứng:</b> thử trên 6.677 lần dự đoán 2 số cuối giải đặc biệt (21 đài, 2020–2026) bằng “số nóng”, “số gan”, “lặp số kỳ trước”: trúng 10,36% / 10,18% / 10,17%, còn chọn ngẫu nhiên là 10% – <b>không hơn ngẫu nhiên</b>. Mỗi kỳ quay độc lập; thống kê quá khứ không báo trước kỳ sau.</div>");
+  return `<section class="card"><h3>Cơ sở của bộ số (thống kê)</h3><div class="remedy">${rows.join("")}</div></section>`;
+}
+
 let luckyToken = 0;
 async function runLucky(bump = false) {
   const err = $("#lucky-error");
@@ -520,10 +544,10 @@ async function runLucky(bump = false) {
   } else {
     status.textContent = "";
   }
-  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, includeHung: $("#lucky-hung").checked, recent, recentText: pasted ? $("#lucky-recent").value : "" });
+  const r = generateLucky({ cccd, gender: $('input[name="lgender"]:checked')?.value || null, date, station, allow05: $("#lucky-05").checked, variant: luckyVariant, includeHung: $("#lucky-hung").checked, mode: $("#lucky-mode").value, recent, recentText: pasted ? $("#lucky-recent").value : "" });
   const gtxt = r.gender === "nam" ? "Nam" : r.gender === "nu" ? "Nữ" : "";
   let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b>${gtxt ? ` · ${gtxt}` : ""}${r.profile ? ` · sinh năm ${r.profile.info.birthYear}` : ""}. Mỗi đài một bộ số đủ cơ cấu giải (giải tám 2 số → giải đặc biệt 6 số). Cùng thông tin, kết quả giữ nguyên; bấm “Bộ số khác” để đổi.</p>`;
-  html += basisPanel(r, src) + r.groups.map(stationCard).join("");
+  html += (r.mode === "stat" ? statBasis(r, src) : basisPanel(r, src)) + r.groups.map(stationCard).join("");
   html += `<p class="disclaimer"><b>Lưu ý:</b> xổ số hoàn toàn ngẫu nhiên, không có bộ số nào làm tăng khả năng trúng. Các bộ số trên chỉ là gợi ý giải trí, chọn theo cặp số cát của Bát tinh cùng các “số neo” từ ngày và CCCD của bạn. Chỉ mua vé của các công ty xổ số được cấp phép, trong khả năng tài chính; không dành cho người dưới 18 tuổi.</p>`;
   $("#lucky-result").innerHTML = html;
   $("#lucky-more").hidden = false;
@@ -538,6 +562,16 @@ function initLucky() {
   $("#lucky-cccd").addEventListener("input", () => { state.cccdForSuggest = null; syncLuckyGender(); });
   $("#lucky-date").addEventListener("change", renderStations);
   $("#lucky-form").addEventListener("submit", (e) => { e.preventDefault(); luckyVariant = 0; runLucky(false); });
+  const syncMode = () => {
+    const stat = $("#lucky-mode").value === "stat";
+    $("#lucky-hung").closest("label").hidden = stat;
+    $("#lucky-05").closest("label").hidden = stat;
+    $("#lucky-mode-hint").textContent = stat
+      ? "Không ràng buộc Bát tinh và dùng mọi chữ số 0–9 (bỏ qua hai công tắc 0/5 và sao xấu). Chỉ là thống kê, không phải dự báo."
+      : "Mỗi dãy được chọn để đủ cát tinh, hóa giải hung tinh, hợp mệnh và nối theo ngũ hành tương sinh.";
+  };
+  $("#lucky-mode").addEventListener("change", syncMode);
+  syncMode();
   $("#lucky-more").addEventListener("click", () => runLucky(true));
   $("#lucky-result").addEventListener("click", (e) => {
     const b = e.target.closest("[data-copyset]");

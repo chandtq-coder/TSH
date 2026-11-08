@@ -326,3 +326,5 @@ input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow
 .rr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .rr-w { margin-left: auto; color: var(--gold); }
 .rr-line { margin: 4px 0 0; font-size: .88rem; }
+
+.check[hidden] { display: none !important; }

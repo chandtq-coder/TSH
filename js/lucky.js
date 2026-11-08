@@ -387,6 +387,78 @@ function fitScore(a, len, ctx) {
   return r;
 }
 
+
+/**
+ * Chế độ "thống kê": chọn số theo phân bố chữ số trong 8 kỳ gần nhất của từng đài, KHÔNG hạn chế theo Bát tinh
+ * (dùng mọi chữ số 0–9, không cần đủ sao, không cần hóa thần). Chữ số xuất hiện nhiều ở đúng vị trí (tính từ cuối)
+ * có xác suất được chọn cao hơn; ngày dự thưởng và năm sinh làm "số neo". Không trùng các dãy đã ra trong các kỳ đó.
+ * Đây chỉ là thống kê mô tả: thử trên hơn 6.000 kỳ thật cho thấy cách này không hơn chọn ngẫu nhiên.
+ */
+export function generateStatistical(o) {
+  const date = o.date;
+  const cccdDigits = digitsOnly(o.cccd || "");
+  const profile = cccdDigits.length === 12 ? analyzeCCCD(cccdDigits, date) : null;
+  const gender = o.gender || profile?.info.gender || null;
+  const parsedRecent = o.recent || parseRecent(o.recentText);
+  const stations = stationsFor(date);
+  const targets = o.station ? [o.station] : stations;
+  const DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  const iso = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  const takenAcross = new Set();
+  const groups = [];
+  for (const name of targets) {
+    const idx = Math.max(0, stations.indexOf(name));
+    const anchors = anchorsFor(date, idx, profile?.info.birthYear);
+    const anchorDigits = new Set(anchors.map((a) => a.digit));
+    const own = parsedRecent.stationDraws[name];
+    const src = own && own.length ? own : parsedRecent.draws.length ? parsedRecent.draws : null;
+    const posCount = Array.from({ length: 6 }, () => Array(10).fill(0)); // vị trí tính từ cuối → số lần mỗi chữ số xuất hiện
+    const digitTotal = Array(10).fill(0);
+    const tails = new Map();
+    const recentSet = new Set();
+    let seen = 0;
+    for (const draw of src || []) {
+      for (const num of draw) {
+        recentSet.add(num);
+        seen++;
+        for (let k = 0; k < Math.min(6, num.length); k++) posCount[k][Number(num[num.length - 1 - k])]++;
+        for (const ch of num) digitTotal[Number(ch)]++;
+        if (num.length >= 2) tails.set(num.slice(-2), (tails.get(num.slice(-2)) || 0) + 1);
+      }
+    }
+    const rng = mulberry32(fnv1a(`stat|${cccdDigits}|${gender}|${iso}|${name}|${o.variant || 0}|${seen}`));
+    const tiers = PRIZES.map((prize) => {
+      const items = [];
+      const used = new Set();
+      for (let guard = 0; items.length < prize.count && guard < 600; guard++) {
+        let num = "";
+        for (let i = 0; i < prize.digits; i++) {
+          const k = Math.min(5, prize.digits - 1 - i);
+          const w = DIGITS.map((d) => (posCount[k][Number(d)] + 1) * (anchorDigits.has(d) ? 1.6 : 1));
+          num += pickWeighted(rng, DIGITS, w);
+        }
+        if (used.has(num) || recentSet.has(num) || takenAcross.has(`${prize.digits}:${num}`)) continue;
+        used.add(num);
+        takenAcross.add(`${prize.digits}:${num}`);
+        const hit = anchors.filter((x, k2) => num.includes(x.digit) && anchors.findIndex((y) => y.digit === x.digit) === k2);
+        items.push({ number: num, analysis: analyze(num, { gender }), hit });
+      }
+      return { ...prize, items };
+    });
+    const rank = DIGITS.map((d) => [d, digitTotal[Number(d)]]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const stat = seen
+      ? {
+          draws: src.length, numbers: seen,
+          hotDigits: rank.slice(0, 3).map((x) => `${x[0]} (${x[1]})`),
+          coldDigits: rank.slice(-3).reverse().map((x) => `${x[0]} (${x[1]})`),
+          topTails: [...tails.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map((x) => `${x[0]} (${x[1]})`),
+        }
+      : null;
+    groups.push({ station: name, mode: "stat", anchors, tiers, stat, recentSource: own && own.length ? "station" : src ? "all" : null });
+  }
+  return { date, gender, mode: "stat", includeHung: false, profile, menh: null, support: [], clash: [], needs: [], recent: recentEnergy(parsedRecent), groups };
+}
+
 /**
  * Sinh bộ số theo cơ cấu giải cho từng đài.
  * @param {object} o
@@ -401,6 +473,7 @@ function fitScore(a, len, ctx) {
  * @param {string} [o.recentText]  kết quả các kỳ gần nhất do người dùng dán (tối đa 8 kỳ)
  */
 export function generateLucky(o) {
+  if (o.mode === "stat") return generateStatistical(o);
   const date = o.date;
   const cccdDigits = digitsOnly(o.cccd || "");
   const profile = cccdDigits.length === 12 ? analyzeCCCD(cccdDigits, date) : null;
