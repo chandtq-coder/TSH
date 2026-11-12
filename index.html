@@ -167,6 +167,7 @@
           <select id="lucky-mode">
             <option value="bat_tinh">Theo Bát tinh – đủ 8 sao, hóa giải, ngũ hành</option>
             <option value="stat">Theo thống kê 8 kỳ – không hạn chế Bát tinh</option>
+            <option value="bone">Theo cân xương – không dùng Bát tinh</option>
           </select>
           <p id="lucky-mode-hint" class="hint"></p>
 
@@ -217,6 +218,48 @@
       <div id="list-result" aria-live="polite"></div>
     </section>
 
+    <!-- ============ CÂN XƯƠNG ============ -->
+    <section id="tab-bone" class="tab" aria-labelledby="h-bone" hidden>
+      <h2 id="h-bone" class="sr-only">Cân xương theo ngày giờ sinh</h2>
+      <form id="bone-form" class="card form" novalidate autocomplete="off">
+        <div class="grid2">
+          <div>
+            <label for="bone-date">Ngày sinh (dương lịch)</label>
+            <input id="bone-date" type="date" min="1900-01-01">
+          </div>
+          <div>
+            <label for="bone-hour">Giờ sinh</label>
+            <select id="bone-hour"></select>
+          </div>
+        </div>
+        <p class="hint">Ứng dụng đổi ngày dương sang âm lịch Việt Nam, rồi cộng trọng lượng của năm, tháng, ngày và giờ sinh (lượng, chỉ) theo phương pháp cân xương. Không dùng Bát tinh/thần số học.</p>
+        <div class="actions"><button type="submit" class="btn primary">Cân xương</button></div>
+        <p id="bone-error" class="error" role="alert" hidden></p>
+        <p class="privacy">🔒 Ngày giờ sinh chỉ được xử lý ngay trên thiết bị của bạn, không gửi đi đâu và không được lưu lại.</p>
+      </form>
+      <div id="bone-result" aria-live="polite"></div>
+
+      <div id="bone-extra" hidden>
+        <section class="card">
+          <h3>Bảng SĐT hợp cân xương</h3>
+          <div id="bone-carriers" class="radio-chips"></div>
+          <div id="bone-phones" class="table-scroll" style="margin-top:12px"></div>
+          <div class="actions"><button type="button" id="bone-phone-more" class="btn ghost">Bảng SĐT khác</button></div>
+        </section>
+        <section class="card">
+          <h3>Bảng số may mắn cân xương (xổ số miền Nam)</h3>
+          <label for="bone-draw-date">Ngày dự thưởng</label>
+          <input id="bone-draw-date" type="date">
+          <p id="bone-draw-weekday" class="hint"></p>
+          <div id="bone-lucky" class="table-scroll"></div>
+          <div class="actions">
+            <button type="button" id="bone-lucky-more" class="btn ghost">Bộ số khác</button>
+            <button type="button" id="bone-lucky-full" class="btn primary">Xem đủ 18 dãy mỗi đài</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <!-- ============ KIẾN THỨC ============ -->
     <section id="tab-learn" class="tab" aria-labelledby="h-learn" hidden>
       <h2 id="h-learn" class="sr-only">Kiến thức nền</h2>
@@ -236,6 +279,7 @@
       <button data-tab="suggest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.4 5.8.5-4.4 3.8 1.4 5.7L12 15.4 7 18.4l1.4-5.7L4 8.9l5.8-.5z"/></svg><span>Đề xuất</span></button>
       <button data-tab="list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Chấm số</span></button>
       <button data-tab="lucky"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M8.5 10.5h7M8.5 13.5h7"/></svg><span>May mắn</span></button>
+      <button data-tab="bone"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM17 14a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8.5 9l7 6"/></svg><span>Cân xương</span></button>
       <button data-tab="learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5v13c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z"/><path d="M12 6v13"/></svg><span>Kiến thức</span></button>
       <button data-tab="about"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.01"/></svg><span>Lưu ý</span></button>
     </div>

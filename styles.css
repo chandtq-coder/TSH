@@ -328,3 +328,21 @@ input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow
 .rr-line { margin: 4px 0 0; font-size: .88rem; }
 
 .check[hidden] { display: none !important; }
+
+.nav-in { grid-template-columns: repeat(7, 1fr); }
+.bottom-nav button { font-size: .6rem; }
+.bone-total { font-family: var(--font-head); font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.bone-table { width: 100%; border-collapse: collapse; }
+.bone-table th, .bone-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; font-size: .92rem; }
+.bone-table td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bone-table tr.sum td, .bone-table tr.sum th { border-top: 2px solid var(--ink); font-size: 1rem; }
+.bn-num { font-family: var(--font-num); font-weight: 700; letter-spacing: .05em; font-size: 1.02rem; white-space: nowrap; }
+.bn-sub { display: block; color: var(--muted); font-size: .76rem; font-family: var(--font-body); font-weight: 500; letter-spacing: 0; }
+.bn-lucky { width: 100%; border-collapse: collapse; }
+.bn-lucky th, .bn-lucky td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.bn-lucky th { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.bn-lucky td.db { font-size: 1.15rem; font-weight: 700; color: var(--brand); }
+@media (prefers-color-scheme: dark) { .bn-lucky td.db { color: var(--ink); } }
+
+.bottom-nav button span { white-space: nowrap; }
+.bottom-nav button { font-size: .58rem; }

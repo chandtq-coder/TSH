@@ -3,6 +3,7 @@ import { CARRIERS, carrierById } from "./carriers.js";
 import { analyze, analyzePhone, analyzeCCCD, compatibility, formatPhone, digitsOnly, normalizePhone, summarize, levelOf } from "./engine.js";
 import { parseList, fmtPrice } from "./listparse.js";
 import { fetchRecent, SOURCE_NAME, SOURCE_URL } from "./kqxs.js";
+import { computeBone, hourIndex, fmtLuongChi, boneNumbers, suggestPhones, boneLucky, CHI_NAMES, CHI_HOURS, tierOf, moTaQuyUoc } from "./bone.js";
 import { generateLucky, stationsFor, parseDateInput, dateLabel, WEEKDAYS, XSMN } from "./lucky.js";
 import { GOALS, generateForCarrier, generateAll, carrierPrefixInfo } from "./generator.js";
 
@@ -10,7 +11,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const state = { tab: "lookup", mode: "phone", seed: 1, suggest: null, cccdForSuggest: null };
+const state = { bone: null, boneSeed: 1, boneVariant: 0, tab: "lookup", mode: "phone", seed: 1, suggest: null, cccdForSuggest: null };
 
 /* ------------------------------------------------------------------ định dạng ---- */
 const MODES = {
@@ -413,7 +414,9 @@ function statCard(g) {
     <td>${t.items.map((i) => `<span class="pn-num">${i.number}</span>`).join("")}</td></tr>`).join("");
   const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((x) => [x.digit, x])).values()].map((x) => `<span class="badge neutral">số ${x.digit}: ${esc(x.label)}</span>`).join("")}</div>` : "";
   const s = g.stat;
-  const info = s
+  const info = g.note
+    ? `<p class="hint" style="margin:10px 0 0">${esc(g.note)}</p>`
+    : s
     ? `<p class="hint" style="margin:10px 0 0">Thống kê <b>${s.draws} kỳ</b> gần nhất${g.recentSource === "all" ? " (số liệu chung, chưa có riêng đài này)" : " của đài"}: chữ số ra nhiều nhất <b>${esc(s.hotDigits.join(", "))}</b>, ít nhất <b>${esc(s.coldDigits.join(", "))}</b>; hai số cuối ra nhiều: <b>${esc(s.topTails.join(", "))}</b>.</p>`
     : '<p class="hint" style="margin:10px 0 0">Chưa có kết quả các kỳ gần nhất của đài này nên số được chọn đều theo hồ sơ cá nhân (ngày, năm sinh).</p>';
   return `<section class="card prize-card"><div class="station-title" style="margin-top:0"><h3>Đài ${esc(g.station)}</h3><span class="muted">18 dãy số</span></div>
@@ -447,7 +450,7 @@ function ruleBlock(g) {
 }
 
 function stationCard(g) {
-  if (g.mode === "stat") return statCard(g);
+  if (g.mode === "stat" || g.mode === "bone") return statCard(g);
   const anchors = g.anchors.length ? `<div class="anchors">${[...new Map(g.anchors.map((a) => [a.digit, a])).values()].map((a) => `<span class="badge neutral">số ${a.digit}: ${esc(a.label)}</span>`).join("")}</div>` : "";
   const rows = g.tiers.map((t) => `<tr class="${t.key === "DB" ? "db" : ""}"><th scope="row">${esc(t.name)}<small>${t.digits} số${t.items.length > 1 ? ` × ${t.items.length}` : ""}</small></th>
     <td>${t.items.map((i) => `<span class="pn-num ${scoreTone(i.analysis.total)}${i.analysis.pairs.some((p) => STARS[p.star].base < 0) ? " has-hung" : ""}" title="Điểm Bát tinh ${i.analysis.total} (${i.analysis.level.label})">${i.number}</span>`).join("")}</td></tr>`).join("");
@@ -509,6 +512,7 @@ async function runLucky(bump = false) {
   setError(err, "");
   const date = parseDateInput($("#lucky-date").value);
   if (!date) { setError(err, "Hãy chọn ngày dự thưởng."); return; }
+  if ($("#lucky-mode").value === "bone") { renderLuckyFromBone(date, bump); return; }
   const cccd = digitsOnly($("#lucky-cccd").value);
   if (cccd && cccd.length !== 12) { setError(err, "CCCD cần đủ 12 số (hoặc để trống)."); return; }
   if (bump) luckyVariant++;
@@ -563,12 +567,18 @@ function initLucky() {
   $("#lucky-date").addEventListener("change", renderStations);
   $("#lucky-form").addEventListener("submit", (e) => { e.preventDefault(); luckyVariant = 0; runLucky(false); });
   const syncMode = () => {
-    const stat = $("#lucky-mode").value === "stat";
-    $("#lucky-hung").closest("label").hidden = stat;
-    $("#lucky-05").closest("label").hidden = stat;
-    $("#lucky-mode-hint").textContent = stat
-      ? "Không ràng buộc Bát tinh và dùng mọi chữ số 0–9 (bỏ qua hai công tắc 0/5 và sao xấu). Chỉ là thống kê, không phải dự báo."
-      : "Mỗi dãy được chọn để đủ cát tinh, hóa giải hung tinh, hợp mệnh và nối theo ngũ hành tương sinh.";
+    const mode = $("#lucky-mode").value;
+    const set = (el, v) => { if (el) el.hidden = v; };
+    set($("#lucky-hung").closest("label"), mode !== "bat_tinh");
+    set($("#lucky-05").closest("label"), mode !== "bat_tinh");
+    set($("#lucky-auto").closest("label"), mode === "bone");
+    set($("#lucky-auto-status"), mode === "bone");
+    set($("#lucky-recent-wrap"), mode === "bone");
+    $("#lucky-mode-hint").textContent = {
+      stat: "Không ràng buộc Bát tinh và dùng mọi chữ số 0–9 (bỏ qua hai công tắc 0/5 và sao xấu). Chỉ là thống kê, không phải dự báo.",
+      bone: "Dựa vào ngày giờ sinh đã cân ở tab Cân xương (không dùng Bát tinh, không dùng kết quả cũ, bỏ qua CCCD). Chỉ để giải trí.",
+      bat_tinh: "Mỗi dãy được chọn để đủ cát tinh, hóa giải hung tinh, hợp mệnh và nối theo ngũ hành tương sinh.",
+    }[mode];
   };
   $("#lucky-mode").addEventListener("change", syncMode);
   syncMode();
@@ -577,6 +587,119 @@ function initLucky() {
     const b = e.target.closest("[data-copyset]");
     if (!b) return;
     copyText(b.dataset.copyset).then((ok) => { const old = b.textContent; b.textContent = ok ? "Đã sao chép ✓" : "Không sao chép được"; setTimeout(() => (b.textContent = old), 1400); });
+  });
+}
+
+/* ------------------------------------------------------------------ cân xương ---- */
+function boneBasis(b) {
+  const rows = [
+    `<div class="row"><b>Cân xương:</b> ${esc(fmtLuongChi(b.total))} (${esc(b.tier.name)}) – sinh ${esc(b.lunar.day + "/" + b.lunar.month)} âm lịch năm ${esc(b.canChi)}, giờ ${esc(b.hourName)}.</div>`,
+    '<div class="row"><b>Cách chọn:</b> không dùng Bát tinh, không dùng kết quả các kỳ trước. Dãy số được chọn theo “số hợp” suy ra từ kết quả cân xương.</div>',
+    `<div class="row muted">${esc(moTaQuyUoc)}</div>`,
+  ];
+  return `<section class="card"><h3>Cơ sở của bộ số (cân xương)</h3><div class="remedy">${rows.join("")}</div></section>`;
+}
+
+function renderLuckyFromBone(date, bump) {
+  const err = $("#lucky-error");
+  if (!state.bone) { setError(err, "Chế độ này cần ngày giờ sinh. Hãy cân xương ở tab “Cân xương” trước."); return; }
+  if (bump) luckyVariant++;
+  const station = $('input[name="lstation"]:checked')?.value || "";
+  const r = boneLucky({ bone: state.bone, date, station, variant: luckyVariant });
+  let html = `<p class="hint" style="margin:0 2px 8px"><b>${esc(dateLabel(date))}</b> · cân xương ${esc(fmtLuongChi(state.bone.total))}. Mỗi đài một bộ số đủ cơ cấu giải (giải tám 2 số → giải đặc biệt 6 số); bấm “Bộ số khác” để đổi.</p>`;
+  html += boneBasis(state.bone) + r.groups.map(stationCard).join("");
+  html += '<p class="disclaimer"><b>Lưu ý:</b> xổ số hoàn toàn ngẫu nhiên; không có bộ số nào làm tăng khả năng trúng, kể cả theo cân xương. Chỉ để giải trí; chỉ mua vé của công ty xổ số được cấp phép, trong khả năng tài chính; không dành cho người dưới 18 tuổi.</p>';
+  $("#lucky-result").innerHTML = html;
+  $("#lucky-more").hidden = false;
+  $("#lucky-result").scrollIntoView({ behavior: "auto", block: "start" });
+}
+
+function renderBoneResult(b) {
+  const parts = [
+    [`Năm ${b.canChi} (âm lịch ${b.lunar.year})`, b.parts.year],
+    [`Tháng ${b.lunar.month}${b.lunar.leap ? " nhuận" : ""} âm lịch`, b.parts.month],
+    [`Ngày ${b.lunar.day} âm lịch`, b.parts.day],
+    [`Giờ ${b.hourName} (${CHI_HOURS[b.hourIdx]})`, b.parts.hour],
+  ];
+  const n = boneNumbers(b);
+  const t = b.tier;
+  const notes = [];
+  if (b.lunar.leap) notes.push("Sinh vào tháng nhuận: ứng dụng tính như tháng cùng số (cách làm phổ biến).");
+  notes.push("Năm âm lịch đổi vào mùng 1 Tết; giờ Tý (23:00–00:59) được tính theo ngày dương đã chọn.");
+  return `<section class="card"><h3>Kết quả cân xương</h3>
+    <p class="hint" style="margin-top:0">Dương lịch ${String(b.solar.day).padStart(2, "0")}/${String(b.solar.month).padStart(2, "0")}/${b.solar.year} → âm lịch <b>ngày ${b.lunar.day} tháng ${b.lunar.month}${b.lunar.leap ? " (nhuận)" : ""} năm ${esc(b.canChi)}</b>, giờ ${esc(b.hourName)}.</p>
+    <table class="bone-table"><tbody>${parts.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(fmtLuongChi(v))}</td></tr>`).join("")}
+      <tr class="sum"><th scope="row">Tổng trọng lượng</th><td><span class="bone-total">${esc(fmtLuongChi(b.total))}</span></td></tr></tbody></table>
+    <p style="margin:12px 0 4px"><span class="badge ok">${esc(t.name)} · ${esc(t.range)}</span></p>
+    <p style="margin:6px 0">${esc(t.text)}</p><p class="hint" style="margin:0"><b>Gợi ý:</b> ${esc(t.advice)}</p>
+    <p class="hint">${notes.map(esc).join(" ")}</p></section>
+    <section class="card"><h3>Số hợp theo cân xương</h3>
+    <div class="dist-legend">${[...n.labels.entries()].map(([d, l]) => `<span class="chip" style="--sc: var(--gold)"><i class="dot"></i><b class="nums">${d}</b>&nbsp;${esc(l)}</span>`).join("")}</div>
+    <p class="hint" style="margin-top:10px">Cặp lượng–chỉ: <b class="nums">${n.pairs.join(" / ")}</b> · số gốc của tổng: <b class="nums">${n.root}</b>.</p>
+    <p class="hint">${esc(moTaQuyUoc)}</p></section>
+    <p class="disclaimer">Bảng trọng lượng lấy từ <a href="https://m.k366.com/gj/chenggu.htm" target="_blank" rel="noopener noreferrer">华易网 (k366.com)</a>, đã kiểm tra khớp 60/60 năm với bảng tham chiếu khác. Lời giải theo nhóm mức cân do ứng dụng tóm tắt; bản gốc “Xưng cốt ca” có lời riêng cho từng mức. Không có sử liệu chứng minh phương pháp do Viên Thiên Cương sáng lập; đây là tục dân gian, chỉ mang tính giải trí.</p>`;
+}
+
+function renderBonePhones() {
+  if (!state.bone) return;
+  const sel = $('input[name="bcarrier"]:checked')?.value || "all";
+  const ids = sel === "all" ? CARRIERS.map((c) => c.id) : [sel];
+  const per = sel === "all" ? 2 : 10;
+  const rows = ids.flatMap((id) => suggestPhones(state.bone, { carrierId: id, count: per, seed: state.boneSeed }));
+  $("#bone-phones").innerHTML = `<table class="k-table"><thead><tr><th>Số</th><th>Vì sao hợp</th><th></th></tr></thead><tbody>${rows.map((r) => {
+    const c = carrierById(r.carrierId);
+    return `<tr data-num="${r.number}"><td><span class="bn-num">${r.formatted}</span><span class="bn-sub">${esc(c.name)}</span></td><td>${r.reasons.map(esc).join("; ")}</td><td><button type="button" class="btn ghost small" data-act="copy">Chép</button></td></tr>`;
+  }).join("")}</tbody></table><p class="hint">Số tạo theo quy tắc, chưa kiểm tra còn hàng tại nhà mạng; tìm theo đuôi tại kênh chính thức.</p>`;
+}
+
+function renderBoneLucky() {
+  if (!state.bone) return;
+  const date = parseDateInput($("#bone-draw-date").value);
+  if (!date) { $("#bone-lucky").innerHTML = '<p class="empty">Chọn ngày dự thưởng.</p>'; return; }
+  $("#bone-draw-weekday").textContent = dateLabel(date);
+  const r = boneLucky({ bone: state.bone, date, variant: state.boneVariant });
+  const get = (g, key) => g.tiers.find((t) => t.key === key).items.map((i) => i.number).join(" ");
+  $("#bone-lucky").innerHTML = `<table class="bn-lucky"><thead><tr><th>Đài</th><th>Đặc biệt</th><th>Nhất</th><th>Bảy</th><th>Tám</th></tr></thead><tbody>${r.groups.map((g) => `<tr><th scope="row">${esc(g.station)}</th><td class="db bn-num">${get(g, "DB")}</td><td class="bn-num">${get(g, "G1")}</td><td class="bn-num">${get(g, "G7")}</td><td class="bn-num">${get(g, "G8")}</td></tr>`).join("")}</tbody></table>
+    <p class="hint">Xổ số hoàn toàn ngẫu nhiên; bảng chỉ để giải trí. Bấm “Xem đủ 18 dãy” để có đủ các giải.</p>`;
+}
+
+function initBone() {
+  const today = todayISO();
+  $("#bone-date").max = today;
+  $("#bone-hour").innerHTML = CHI_NAMES.map((n, i) => `<option value="${i}">${n} (${CHI_HOURS[i]})</option>`).join("");
+  $("#bone-draw-date").value = today;
+  $("#bone-carriers").innerHTML = ['<label><input type="radio" name="bcarrier" value="all" checked><span>Tất cả</span></label>']
+    .concat(CARRIERS.map((c) => `<label><input type="radio" name="bcarrier" value="${c.id}"><span>${esc(c.name)}</span></label>`)).join("");
+  $("#bone-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const err = $("#bone-error");
+    setError(err, "");
+    const v = $("#bone-date").value;
+    const d = parseDateInput(v);
+    if (!d) { setError(err, "Hãy chọn ngày sinh."); return; }
+    if (v > today) { setError(err, "Ngày sinh không thể ở tương lai."); return; }
+    try {
+      state.bone = computeBone({ year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(), hourIdx: Number($("#bone-hour").value) });
+    } catch (ex) { setError(err, ex.message); return; }
+    state.boneSeed = 1; state.boneVariant = 0;
+    $("#bone-result").innerHTML = renderBoneResult(state.bone);
+    $("#bone-extra").hidden = false;
+    renderBonePhones();
+    renderBoneLucky();
+    $("#bone-result").scrollIntoView({ behavior: "auto", block: "start" });
+  });
+  $("#bone-carriers").addEventListener("change", renderBonePhones);
+  $("#bone-phone-more").addEventListener("click", () => { state.boneSeed++; renderBonePhones(); });
+  $("#bone-draw-date").addEventListener("change", renderBoneLucky);
+  $("#bone-lucky-more").addEventListener("click", () => { state.boneVariant++; renderBoneLucky(); });
+  $("#bone-lucky-full").addEventListener("click", () => {
+    setTab("lucky");
+    $("#lucky-mode").value = "bone";
+    $("#lucky-mode").dispatchEvent(new Event("change"));
+    $("#lucky-date").value = $("#bone-draw-date").value;
+    renderStations();
+    luckyVariant = state.boneVariant;
+    runLucky(false);
   });
 }
 
@@ -660,6 +783,7 @@ function renderAbout() {
     <ul><li><b>Tra cứu:</b> phân tích SĐT, CCCD (12 số) hoặc dãy số bất kỳ theo 8 từ trường Bát tinh.</li>
     <li><b>Đề xuất SĐT:</b> tạo các số 10 chữ số có đầu số đúng của Viettel, VinaPhone, MobiFone, Vietnamobile, Gmobile, iTel, Wintel; có thể cá nhân hóa theo CCCD để bù hung tinh.</li>
     <li><b>May mắn:</b> bộ số đủ cơ cấu giải xổ số miền Nam (2→6 số) theo CCCD, mệnh, ngày, đài, đủ cát tinh, hóa giải, ngũ hành tương sinh và kết quả các kỳ gần đây bạn dán vào (chỉ mang tính giải trí).</li>
+    <li><b>Cân xương:</b> cân xương theo ngày giờ sinh (tổng trọng lượng lượng–chỉ), kèm bảng SĐT hợp và bảng số may mắn suy ra từ kết quả cân; không dùng Bát tinh. Nguồn bảng trọng lượng: 华易网, đã kiểm tra chéo; lời giải theo nhóm, chỉ giải trí.</li>
     <li><b>Chấm số:</b> dán danh sách số (kèm giá) lấy từ trang nhà mạng/đại lý để lọc và xếp hạng theo Bát tinh.</li>
     <li><b>Kiến thức:</b> bảng cặp số, quy tắc 0/5, hóa giải, tổ hợp hai sao.</li></ul></section>
   <section class="card"><h3>Nguồn và cách tính</h3>
@@ -688,7 +812,7 @@ function renderAbout() {
 }
 
 /* ------------------------------------------------------------------ điều hướng ---- */
-const TABS = ["lookup", "suggest", "list", "lucky", "learn", "about"];
+const TABS = ["lookup", "suggest", "list", "lucky", "bone", "learn", "about"];
 function setTab(tab, { updateHash = true } = {}) {
   if (!TABS.includes(tab)) tab = "lookup";
   state.tab = tab;
@@ -709,6 +833,7 @@ function init() {
 
   $$("#tab-lookup .seg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
   initLucky();
+  initBone();
   bindNumberInput($("#lookup-input"), () => state.mode, () => MODES[state.mode].max);
   bindNumberInput($("#compat-input"), "cccd", 12);
   bindNumberInput($("#suggest-cccd"), "cccd", 12);

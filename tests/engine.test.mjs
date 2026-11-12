@@ -348,3 +348,76 @@ test("chế độ thống kê: không hạn chế Bát tinh, đủ cơ cấu gi�
   assert.equal(bt.groups[0].fullAll, true);
   assert.notEqual(flat(bt), flat(r));
 });
+
+import { solarToLunar } from "../js/lunar.js";
+import { computeBone, canChiOfYear, hourIndex, fmtLuongChi, tierOf, TIERS, boneNumbers, suggestPhones, boneLucky } from "../js/bone.js";
+import { YEAR_W, MONTH_W, DAY_W, HOUR_W } from "../js/bone_data.js";
+
+test("âm lịch Việt Nam: mùng 1 Tết, tháng nhuận, ngày cuối năm", () => {
+  for (const [y, m, d] of [[2000, 2, 5], [2008, 2, 7], [2020, 1, 25], [2023, 1, 22], [2024, 2, 10], [2025, 1, 29], [2026, 2, 17], [1984, 2, 2], [1988, 2, 17], [1990, 1, 27]]) {
+    const l = solarToLunar(d, m, y);
+    assert.deepEqual([l.day, l.month, l.year, l.leap], [1, 1, y, false], `${y}-${m}-${d}`);
+  }
+  assert.deepEqual(solarToLunar(16, 2, 2026), { day: 29, month: 12, year: 2025, leap: false });
+  for (const [y, m, d, mon] of [[2023, 3, 22, 2], [2025, 7, 25, 6], [2020, 5, 23, 4]]) {
+    const l = solarToLunar(d, m, y);
+    assert.deepEqual([l.day, l.month, l.leap], [1, mon, true]);
+  }
+});
+
+test("cân xương: bảng trọng lượng đủ 60/12/30/12, biên độ 2,1–7,1 lượng, ví dụ tính tay", () => {
+  assert.equal(Object.keys(YEAR_W).length, 60);
+  assert.equal(MONTH_W.length, 12); assert.equal(DAY_W.length, 30); assert.equal(HOUR_W.length, 12);
+  assert.equal(YEAR_W["Giáp Tý"], 12); assert.equal(YEAR_W["Mậu Thìn"], 12); assert.equal(MONTH_W[2], 18); assert.equal(HOUR_W[0], 16);
+  const lo = Math.min(...Object.values(YEAR_W)) + Math.min(...MONTH_W) + Math.min(...DAY_W) + Math.min(...HOUR_W);
+  const hi = Math.max(...Object.values(YEAR_W)) + Math.max(...MONTH_W) + Math.max(...DAY_W) + Math.max(...HOUR_W);
+  assert.equal(lo, 21); assert.equal(hi, 71);
+  for (let w = 21; w <= 71; w++) assert.ok(tierOf(w), `thiếu nhóm cho ${w}`); // mọi tổng đều có lời giải
+  assert.equal(TIERS.length, 6);
+  assert.equal(canChiOfYear(1984), "Giáp Tý"); assert.equal(canChiOfYear(1988), "Mậu Thìn"); assert.equal(canChiOfYear(2026), "Bính Ngọ");
+  assert.equal(hourIndex(23), 0); assert.equal(hourIndex(0), 0); assert.equal(hourIndex(1), 1); assert.equal(hourIndex(14), 7);
+  // 27/9/1988 = 17/8 âm Mậu Thìn, giờ Mùi: 1,2 + 1,5 + 0,9 + 0,8 = 4 lượng 4 chỉ
+  const b = computeBone({ year: 1988, month: 9, day: 27, hourIdx: hourIndex(14) });
+  assert.deepEqual([b.lunar.day, b.lunar.month, b.canChi], [17, 8, "Mậu Thìn"]);
+  assert.deepEqual(b.parts, { year: 12, month: 15, day: 9, hour: 8 });
+  assert.equal(b.total, 44); assert.equal(fmtLuongChi(b.total), "4 lượng 4 chỉ"); assert.equal(fmtLuongChi(30), "3 lượng"); assert.equal(fmtLuongChi(6), "6 chỉ");
+  assert.throws(() => computeBone({ year: 2001, month: 2, day: 30, hourIdx: 0 }));
+  // Ngày dương trước Tết thuộc năm âm lịch trước
+  assert.equal(computeBone({ year: 2026, month: 2, day: 16, hourIdx: 0 }).canChi, "Ất Tỵ");
+});
+
+test("bảng SĐT hợp và số may mắn cân xương: đúng quy ước, không dùng Bát tinh", () => {
+  const b = computeBone({ year: 1990, month: 6, day: 15, hourIdx: 3 });
+  const n = boneNumbers(b);
+  assert.ok(n.support.has(String(b.L)) && n.support.has(String(b.C)));
+  assert.equal(n.pairs[0], `${b.L}${b.C}`);
+  for (const c of CARRIERS) {
+    const ps = suggestPhones(b, { carrierId: c.id, count: 10, seed: 1 });
+    assert.equal(ps.length, 10, c.id);
+    for (const p of ps) {
+      assert.match(p.number, /^0\d{9}$/);
+      assert.ok(c.prefixes.includes(p.number.slice(0, 3)));
+      assert.ok(p.score >= 3 && p.reasons.length >= 1);
+    }
+    assert.deepEqual(ps.map((x) => x.number), suggestPhones(b, { carrierId: c.id, count: 10, seed: 1 }).map((x) => x.number));
+    assert.notDeepEqual(ps.map((x) => x.number), suggestPhones(b, { carrierId: c.id, count: 10, seed: 2 }).map((x) => x.number));
+  }
+  // ít nhất đa số số đề xuất có đuôi là cặp lượng–chỉ hoặc tổng rút gọn bằng số gốc
+  const vt = suggestPhones(b, { carrierId: "viettel", count: 10, seed: 3 });
+  assert.ok(vt.filter((p) => n.pairs.includes(p.number.slice(-2))).length >= 5);
+  const date = new Date(2026, 10, 14);
+  const r = boneLucky({ bone: b, date });
+  assert.equal(r.groups.length, 4);
+  const want = { G8: [2, 1], G7: [3, 1], G6: [4, 3], G5: [4, 1], G4: [5, 7], G3: [5, 2], G2: [5, 1], G1: [5, 1], DB: [6, 1] };
+  const all = [];
+  for (const g of r.groups) {
+    assert.equal(g.mode, "bone");
+    for (const t of g.tiers) { assert.equal(t.items.length, want[t.key][1]); for (const i of t.items) { assert.equal(i.number.length, want[t.key][0]); assert.equal(i.analysis, undefined); all.push(`${t.digits}:${i.number}`); } }
+    assert.ok(g.tiers.at(-1).items[0].number.split("").some((d) => n.support.has(d)));
+  }
+  assert.equal(new Set(all).size, all.length);
+  const flat = (x) => JSON.stringify(x.groups.map((g) => g.tiers.map((t) => t.items.map((i) => i.number))));
+  assert.equal(flat(boneLucky({ bone: b, date })), flat(r));
+  assert.notEqual(flat(boneLucky({ bone: b, date, variant: 1 })), flat(r));
+  assert.equal(boneLucky({ bone: b, date, station: "Long An" }).groups.length, 1);
+});
