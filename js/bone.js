@@ -2,6 +2,7 @@
 // Phần này KHÔNG dùng Bát tinh/thần số học: chỉ dùng bảng trọng lượng cân xương và các số suy ra từ kết quả cân.
 // Lưu ý: phương pháp cân xương chỉ có lời bàn về vận mệnh; việc suy ra "số hợp" cho SĐT/xổ số là QUY ƯỚC của ứng dụng (xem moTaQuyUoc).
 import { YEAR_W, MONTH_W, DAY_W, HOUR_W, CHI_NAMES, CHI_HOURS } from "./bone_data.js";
+import { VERSES } from "./bone_verses.js";
 import { solarToLunar } from "./lunar.js";
 import { CARRIERS, carrierById } from "./carriers.js";
 import { mulberry32 } from "./generator.js";
@@ -31,6 +32,8 @@ export const TIERS = [
   { min: 61, max: 70, name: "Mệnh nặng", range: "6,1 – 7,0 lượng", text: "Được xem là mệnh tốt về công danh, tài lộc; có sức gánh vác việc lớn và trách nhiệm lớn.", advice: "Giữ khiêm nhường, tránh tham vọng quá mức và kiêu ngạo." },
   { min: 71, max: 99, name: "Mệnh rất nặng", range: "từ 7,1 lượng", text: "Mức cao nhất trong phương pháp, truyền thống ví như bậc đại quý và là mức rất hiếm gặp.", advice: "Điểm số chỉ để tham khảo; công việc và đức độ vẫn là gốc." },
 ];
+/** Lời ca theo mức cân: { m: [nguyên văn, dịch ý] | null, f: [...] | null }; null = nguồn trùng lặp, không hiển thị. */
+export const versesFor = (w) => VERSES[w] || { m: null, f: null };
 export const tierOf = (w) => TIERS.find((t) => w >= t.min && w <= t.max) || null;
 
 /**

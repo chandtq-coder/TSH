@@ -232,6 +232,14 @@
             <select id="bone-hour"></select>
           </div>
         </div>
+        <fieldset class="chips-field">
+          <legend>Giới tính <span class="muted">(lời ca cổ khác nhau giữa nam và nữ; “Không nêu” hiện cả hai)</span></legend>
+          <div class="radio-chips">
+            <label><input type="radio" name="bgender" value="" checked><span>Không nêu</span></label>
+            <label><input type="radio" name="bgender" value="nam"><span>Nam</span></label>
+            <label><input type="radio" name="bgender" value="nu"><span>Nữ</span></label>
+          </div>
+        </fieldset>
         <p class="hint">Ứng dụng đổi ngày dương sang âm lịch Việt Nam, rồi cộng trọng lượng của năm, tháng, ngày và giờ sinh (lượng, chỉ) theo phương pháp cân xương. Không dùng Bát tinh/thần số học.</p>
         <div class="actions"><button type="submit" class="btn primary">Cân xương</button></div>
         <p id="bone-error" class="error" role="alert" hidden></p>

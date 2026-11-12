@@ -421,3 +421,29 @@ test("bảng SĐT hợp và số may mắn cân xương: đúng quy ước, khô
   assert.notEqual(flat(boneLucky({ bone: b, date, variant: 1 })), flat(r));
   assert.equal(boneLucky({ bone: b, date, station: "Long An" }).groups.length, 1);
 });
+
+import { versesFor } from "../js/bone.js";
+import { VERSES } from "../js/bone_verses.js";
+test("lời ca cân xương: đủ 51 mức, tách nam/nữ, bỏ mục trùng lặp của nguồn", () => {
+  assert.equal(Object.keys(VERSES).length, 51);
+  let hidden = 0;
+  for (let w = 21; w <= 71; w++) {
+    const v = versesFor(w);
+    for (const k of ["m", "f"]) {
+      if (v[k] === null) { hidden++; continue; }
+      assert.ok(/[一-鿿]/.test(v[k][0]) && /[，。]/.test(v[k][0]), `${w}${k} nguyên văn`);
+      assert.ok(v[k][0].length >= 28 && v[k][0].length <= 50, `${w}${k} độ dài ${v[k][0].length}`);
+      assert.ok(v[k][1].length >= 25, `${w}${k} dịch ý`);
+    }
+    if (v.m && v.f) assert.notEqual(v.m[0], v.f[0]); // lời ca nam và nữ khác nhau
+  }
+  assert.equal(hidden, 4); // nam 6,5 & 6,6; nữ 6,6 & 6,7 (nguồn trùng lặp)
+  assert.equal(versesFor(66).m, null); assert.equal(versesFor(66).f, null);
+  assert.equal(versesFor(44).m[0], "万事由天莫苦求，须知福禄命里收。少壮名利难如意，晚景欣然更不忧。");
+  assert.deepEqual(versesFor(999), { m: null, f: null });
+  // không có hai mức khác nhau trùng lời ca ngoài các mục đã ẩn
+  for (const k of ["m", "f"]) {
+    const seen = new Map();
+    for (let w = 21; w <= 71; w++) { const e = versesFor(w)[k]; if (!e) continue; assert.ok(!seen.has(e[0]), `${k}${w} trùng ${seen.get(e[0])}`); seen.set(e[0], w); }
+  }
+});

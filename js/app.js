@@ -3,7 +3,7 @@ import { CARRIERS, carrierById } from "./carriers.js";
 import { analyze, analyzePhone, analyzeCCCD, compatibility, formatPhone, digitsOnly, normalizePhone, summarize, levelOf } from "./engine.js";
 import { parseList, fmtPrice } from "./listparse.js";
 import { fetchRecent, SOURCE_NAME, SOURCE_URL } from "./kqxs.js";
-import { computeBone, hourIndex, fmtLuongChi, boneNumbers, suggestPhones, boneLucky, CHI_NAMES, CHI_HOURS, tierOf, moTaQuyUoc } from "./bone.js";
+import { computeBone, hourIndex, fmtLuongChi, boneNumbers, suggestPhones, boneLucky, versesFor, CHI_NAMES, CHI_HOURS, tierOf, moTaQuyUoc } from "./bone.js";
 import { generateLucky, stationsFor, parseDateInput, dateLabel, WEEKDAYS, XSMN } from "./lucky.js";
 import { GOALS, generateForCarrier, generateAll, carrierPrefixInfo } from "./generator.js";
 
@@ -614,6 +614,20 @@ function renderLuckyFromBone(date, bump) {
   $("#lucky-result").scrollIntoView({ behavior: "auto", block: "start" });
 }
 
+function verseCard(b) {
+  const v = versesFor(b.total);
+  const keys = b.gender ? [b.gender === "nam" ? "m" : "f"] : ["m", "f"];
+  const rows = keys.map((k) => {
+    const who = k === "m" ? "Nam mệnh" : "Nữ mệnh";
+    const e = v[k];
+    return e
+      ? `<div class="verse"><b>${who}</b><p class="han-verse" lang="zh-Hans">${esc(e[0])}</p><p>${esc(e[1])}</p></div>`
+      : `<div class="verse"><b>${who}</b><p class="hint">Nguồn dữ liệu ghi lời ca của mức cân này trùng với một mức khác nên chưa đáng tin; ứng dụng không hiển thị để tránh sai.</p></div>`;
+  }).join("");
+  return `<section class="card"><h3>Lời ca cân xương (Xưng cốt ca)</h3>${rows}
+    <p class="hint">Nguyên văn là cổ văn lưu truyền dân gian, lấy từ <a href="https://m.k366.com/gj/chengguboy.htm" target="_blank" rel="noopener noreferrer">k366.com</a>; phần dịch ý do ứng dụng tóm tắt, không phải bản dịch chính thức. Lời ca cổ mang quan niệm xã hội xưa (nhất là phần dành cho nữ), chỉ nên đọc như tục lệ giải trí.</p></section>`;
+}
+
 function renderBoneResult(b) {
   const parts = [
     [`Năm ${b.canChi} (âm lịch ${b.lunar.year})`, b.parts.year],
@@ -633,11 +647,12 @@ function renderBoneResult(b) {
     <p style="margin:12px 0 4px"><span class="badge ok">${esc(t.name)} · ${esc(t.range)}</span></p>
     <p style="margin:6px 0">${esc(t.text)}</p><p class="hint" style="margin:0"><b>Gợi ý:</b> ${esc(t.advice)}</p>
     <p class="hint">${notes.map(esc).join(" ")}</p></section>
+    ${verseCard(b)}
     <section class="card"><h3>Số hợp theo cân xương</h3>
     <div class="dist-legend">${[...n.labels.entries()].map(([d, l]) => `<span class="chip" style="--sc: var(--gold)"><i class="dot"></i><b class="nums">${d}</b>&nbsp;${esc(l)}</span>`).join("")}</div>
     <p class="hint" style="margin-top:10px">Cặp lượng–chỉ: <b class="nums">${n.pairs.join(" / ")}</b> · số gốc của tổng: <b class="nums">${n.root}</b>.</p>
     <p class="hint">${esc(moTaQuyUoc)}</p></section>
-    <p class="disclaimer">Bảng trọng lượng lấy từ <a href="https://m.k366.com/gj/chenggu.htm" target="_blank" rel="noopener noreferrer">华易网 (k366.com)</a>, đã kiểm tra khớp 60/60 năm với bảng tham chiếu khác. Lời giải theo nhóm mức cân do ứng dụng tóm tắt; bản gốc “Xưng cốt ca” có lời riêng cho từng mức. Không có sử liệu chứng minh phương pháp do Viên Thiên Cương sáng lập; đây là tục dân gian, chỉ mang tính giải trí.</p>`;
+    <p class="disclaimer">Bảng trọng lượng lấy từ <a href="https://m.k366.com/gj/chenggu.htm" target="_blank" rel="noopener noreferrer">华易网 (k366.com)</a>, đã kiểm tra khớp 60/60 năm với bảng tham chiếu khác. Lời giải theo nhóm mức cân do ứng dụng tóm tắt; lời ca riêng cho từng mức (nam/nữ) ở thẻ bên trên. Không có sử liệu chứng minh phương pháp do Viên Thiên Cương sáng lập; đây là tục dân gian, chỉ mang tính giải trí.</p>`;
 }
 
 function renderBonePhones() {
@@ -680,6 +695,7 @@ function initBone() {
     if (v > today) { setError(err, "Ngày sinh không thể ở tương lai."); return; }
     try {
       state.bone = computeBone({ year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(), hourIdx: Number($("#bone-hour").value) });
+      state.bone.gender = $('input[name="bgender"]:checked')?.value || null;
     } catch (ex) { setError(err, ex.message); return; }
     state.boneSeed = 1; state.boneVariant = 0;
     $("#bone-result").innerHTML = renderBoneResult(state.bone);
@@ -783,7 +799,7 @@ function renderAbout() {
     <ul><li><b>Tra cứu:</b> phân tích SĐT, CCCD (12 số) hoặc dãy số bất kỳ theo 8 từ trường Bát tinh.</li>
     <li><b>Đề xuất SĐT:</b> tạo các số 10 chữ số có đầu số đúng của Viettel, VinaPhone, MobiFone, Vietnamobile, Gmobile, iTel, Wintel; có thể cá nhân hóa theo CCCD để bù hung tinh.</li>
     <li><b>May mắn:</b> bộ số đủ cơ cấu giải xổ số miền Nam (2→6 số) theo CCCD, mệnh, ngày, đài, đủ cát tinh, hóa giải, ngũ hành tương sinh và kết quả các kỳ gần đây bạn dán vào (chỉ mang tính giải trí).</li>
-    <li><b>Cân xương:</b> cân xương theo ngày giờ sinh (tổng trọng lượng lượng–chỉ), kèm bảng SĐT hợp và bảng số may mắn suy ra từ kết quả cân; không dùng Bát tinh. Nguồn bảng trọng lượng: 华易网, đã kiểm tra chéo; lời giải theo nhóm, chỉ giải trí.</li>
+    <li><b>Cân xương:</b> cân xương theo ngày giờ sinh (tổng trọng lượng lượng–chỉ), kèm bảng SĐT hợp và bảng số may mắn suy ra từ kết quả cân; không dùng Bát tinh. Nguồn bảng trọng lượng và lời ca: 华易网, đã kiểm tra chéo bảng năm; kèm dịch ý, chỉ giải trí.</li>
     <li><b>Chấm số:</b> dán danh sách số (kèm giá) lấy từ trang nhà mạng/đại lý để lọc và xếp hạng theo Bát tinh.</li>
     <li><b>Kiến thức:</b> bảng cặp số, quy tắc 0/5, hóa giải, tổ hợp hai sao.</li></ul></section>
   <section class="card"><h3>Nguồn và cách tính</h3>

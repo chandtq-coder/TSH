@@ -1,8 +1,8 @@
 // Service worker: lưu sẵn toàn bộ app shell để chạy ngoại tuyến (cache-first, cập nhật nền).
-const VERSION = "tsh-v6";
+const VERSION = "tsh-v7";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
-  "./js/app.js", "./js/data.js", "./js/engine.js", "./js/generator.js", "./js/carriers.js", "./js/listparse.js", "./js/lucky.js", "./js/kqxs.js", "./js/bone.js", "./js/bone_data.js", "./js/lunar.js",
+  "./js/app.js", "./js/data.js", "./js/engine.js", "./js/generator.js", "./js/carriers.js", "./js/listparse.js", "./js/lucky.js", "./js/kqxs.js", "./js/bone.js", "./js/bone_data.js", "./js/bone_verses.js", "./js/lunar.js",
   "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
 ];
 

@@ -346,3 +346,8 @@ input[type="date"]:focus { border-color: var(--brand); outline: none; box-shadow
 
 .bottom-nav button span { white-space: nowrap; }
 .bottom-nav button { font-size: .58rem; }
+
+.verse { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); margin-bottom: 8px; }
+.verse b { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.verse p { margin: 4px 0 0; }
+.han-verse { font-family: "Noto Serif CJK SC", "Songti SC", "Source Han Serif SC", serif; font-size: 1.15rem; line-height: 1.75; }
