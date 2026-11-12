@@ -1,5 +1,5 @@
 // Service worker: lưu sẵn toàn bộ app shell để chạy ngoại tuyến (cache-first, cập nhật nền).
-const VERSION = "tsh-v7";
+const VERSION = "tsh-v8";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./js/app.js", "./js/data.js", "./js/engine.js", "./js/generator.js", "./js/carriers.js", "./js/listparse.js", "./js/lucky.js", "./js/kqxs.js", "./js/bone.js", "./js/bone_data.js", "./js/bone_verses.js", "./js/lunar.js",

@@ -424,7 +424,7 @@ test("bảng SĐT hợp và số may mắn cân xương: đúng quy ước, khô
 
 import { versesFor } from "../js/bone.js";
 import { VERSES } from "../js/bone_verses.js";
-test("lời ca cân xương: đủ 51 mức, tách nam/nữ, bỏ mục trùng lặp của nguồn", () => {
+test("lời ca cân xương: đủ 51 mức × 2 giới, nam/nữ khác nhau, không trùng lặp", () => {
   assert.equal(Object.keys(VERSES).length, 51);
   let hidden = 0;
   for (let w = 21; w <= 71; w++) {
@@ -437,8 +437,9 @@ test("lời ca cân xương: đủ 51 mức, tách nam/nữ, bỏ mục trùng l
     }
     if (v.m && v.f) assert.notEqual(v.m[0], v.f[0]); // lời ca nam và nữ khác nhau
   }
-  assert.equal(hidden, 4); // nam 6,5 & 6,6; nữ 6,6 & 6,7 (nguồn trùng lặp)
-  assert.equal(versesFor(66).m, null); assert.equal(versesFor(66).f, null);
+  assert.equal(hidden, 0); // k366 chép trùng nam 6,5 và nữ 6,6; đã bổ sung từ chenggu.bmcx.com
+  assert.equal(versesFor(65).m[0], "细推此命福非轻，富贵荣华孰与争；定国安邦人极品，威声显赫震寰瀛。");
+  assert.equal(versesFor(66).f[0], "时来运转闺阁楼，贤德淑女君子求，击鼓乐之大吉庆，女命逢此喜悠悠。");
   assert.equal(versesFor(44).m[0], "万事由天莫苦求，须知福禄命里收。少壮名利难如意，晚景欣然更不忧。");
   assert.deepEqual(versesFor(999), { m: null, f: null });
   // không có hai mức khác nhau trùng lời ca ngoài các mục đã ẩn
@@ -446,4 +447,18 @@ test("lời ca cân xương: đủ 51 mức, tách nam/nữ, bỏ mục trùng l
     const seen = new Map();
     for (let w = 21; w <= 71; w++) { const e = versesFor(w)[k]; if (!e) continue; assert.ok(!seen.has(e[0]), `${k}${w} trùng ${seen.get(e[0])}`); seen.set(e[0], w); }
   }
+});
+
+const BMCX = JSON.parse(readFileSync(new URL("./fixtures/bmcx.json", import.meta.url), "utf8"));
+test("đối chiếu độc lập với chenggu.bmcx.com: tổng và 4 thành phần trọng lượng khớp 24/24", () => {
+  assert.equal(BMCX.cases.length, 24);
+  for (const c of BMCX.cases) {
+    const [y, m, d] = c.date.split("-").map(Number);
+    const b = computeBone({ year: y, month: m, day: d, hourIdx: c.k });
+    assert.equal(b.total, c.total, c.date);
+    assert.deepEqual([b.parts.year, b.parts.month, b.parts.day, b.parts.hour], c.parts, c.date);
+  }
+  // các tổng đã tra phủ cả đầu thấp lẫn đầu cao của thang
+  const totals = BMCX.cases.map((c) => c.total);
+  assert.ok(Math.min(...totals) === 21 && Math.max(...totals) >= 69);
 });

@@ -625,7 +625,7 @@ function verseCard(b) {
       : `<div class="verse"><b>${who}</b><p class="hint">Nguồn dữ liệu ghi lời ca của mức cân này trùng với một mức khác nên chưa đáng tin; ứng dụng không hiển thị để tránh sai.</p></div>`;
   }).join("");
   return `<section class="card"><h3>Lời ca cân xương (Xưng cốt ca)</h3>${rows}
-    <p class="hint">Nguyên văn là cổ văn lưu truyền dân gian, lấy từ <a href="https://m.k366.com/gj/chengguboy.htm" target="_blank" rel="noopener noreferrer">k366.com</a>; phần dịch ý do ứng dụng tóm tắt, không phải bản dịch chính thức. Lời ca cổ mang quan niệm xã hội xưa (nhất là phần dành cho nữ), chỉ nên đọc như tục lệ giải trí.</p></section>`;
+    <p class="hint">Nguyên văn là cổ văn lưu truyền dân gian, lấy từ <a href="https://m.k366.com/gj/chengguboy.htm" target="_blank" rel="noopener noreferrer">k366.com</a> và đối chiếu với <a href="https://chenggu.bmcx.com/" target="_blank" rel="noopener noreferrer">bmcx.com</a> (hai dị bản của cùng bài ca, có thể khác vài chữ); phần dịch ý do ứng dụng tóm tắt, không phải bản dịch chính thức. Lời ca cổ mang quan niệm xã hội xưa (nhất là phần dành cho nữ), chỉ nên đọc như tục lệ giải trí.</p></section>`;
 }
 
 function renderBoneResult(b) {
@@ -799,7 +799,7 @@ function renderAbout() {
     <ul><li><b>Tra cứu:</b> phân tích SĐT, CCCD (12 số) hoặc dãy số bất kỳ theo 8 từ trường Bát tinh.</li>
     <li><b>Đề xuất SĐT:</b> tạo các số 10 chữ số có đầu số đúng của Viettel, VinaPhone, MobiFone, Vietnamobile, Gmobile, iTel, Wintel; có thể cá nhân hóa theo CCCD để bù hung tinh.</li>
     <li><b>May mắn:</b> bộ số đủ cơ cấu giải xổ số miền Nam (2→6 số) theo CCCD, mệnh, ngày, đài, đủ cát tinh, hóa giải, ngũ hành tương sinh và kết quả các kỳ gần đây bạn dán vào (chỉ mang tính giải trí).</li>
-    <li><b>Cân xương:</b> cân xương theo ngày giờ sinh (tổng trọng lượng lượng–chỉ), kèm bảng SĐT hợp và bảng số may mắn suy ra từ kết quả cân; không dùng Bát tinh. Nguồn bảng trọng lượng và lời ca: 华易网, đã kiểm tra chéo bảng năm; kèm dịch ý, chỉ giải trí.</li>
+    <li><b>Cân xương:</b> cân xương theo ngày giờ sinh (tổng trọng lượng lượng–chỉ), kèm bảng SĐT hợp và bảng số may mắn suy ra từ kết quả cân; không dùng Bát tinh. Nguồn bảng trọng lượng và lời ca: 华易网 (k366), đối chiếu độc lập với bmcx.com (24/24 lượt khớp); kèm dịch ý, chỉ giải trí.</li>
     <li><b>Chấm số:</b> dán danh sách số (kèm giá) lấy từ trang nhà mạng/đại lý để lọc và xếp hạng theo Bát tinh.</li>
     <li><b>Kiến thức:</b> bảng cặp số, quy tắc 0/5, hóa giải, tổ hợp hai sao.</li></ul></section>
   <section class="card"><h3>Nguồn và cách tính</h3>

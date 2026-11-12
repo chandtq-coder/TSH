@@ -1,6 +1,7 @@
-// Lời ca cân xương (称骨歌) theo từng mức cân, tách nam/nữ. Nguồn: 华易网 m.k366.com (trang 男命称骨/女命称骨, chi tiết từng mức).
+// Lời ca cân xương (称骨歌) theo từng mức cân, tách nam/nữ. Nguồn chính: 华易网 m.k366.com (trang 男命称骨/女命称骨, chi tiết từng mức); bổ sung và đối chiếu: chenggu.bmcx.com.
 // Nguyên văn là cổ văn lưu truyền dân gian; phần dịch ý tiếng Việt do ứng dụng tóm tắt, không phải bản dịch chính thức.
-// null = nguồn ghi trùng lặp với mức khác nên không đáng tin, không hiển thị.
+// Nam 6,5 và nữ 6,6: k366 chép trùng nên lấy từ chenggu.bmcx.com (tra trực tiếp). Hai nguồn là hai dị bản của cùng bài ca, khác nhau vài chữ.
+// null = không có lời ca đáng tin, không hiển thị.
 // Khóa: tổng trọng lượng tính bằng chỉ (21 = 2 lượng 1 chỉ … 71 = 7 lượng 1 chỉ). m = nam, f = nữ: [nguyên văn, dịch ý].
 export const VERSES = {
  "21": {
@@ -444,22 +445,34 @@ export const VERSES = {
   ]
  },
  "65": {
-  "m": null,
+  "m": [
+   "细推此命福非轻，富贵荣华孰与争；定国安邦人极品，威声显赫震寰瀛。",
+   "Phúc không nhẹ, phú quý vinh hoa ít ai tranh nổi; an bang định quốc, bậc cực phẩm, uy danh lẫy lừng."
+  ],
   "f": [
    "女版推来福不轻，慈善为事受人敬，天降之王开基业，富贵容华八百年。",
    "Phúc không nhẹ; làm việc từ thiện được người kính; trời ban cơ nghiệp, phú quý lâu dài."
   ]
  },
  "66": {
-  "m": null,
-  "f": null
+  "m": [
+   "此命凡间一富人，堆金积玉满堂春。从来富贵由天定，正笏垂绅谒圣君。",
+   "Một người giàu có ở cõi trần; vàng ngọc đầy nhà; phú quý do trời định, được vào hầu vua (vinh hiển)."
+  ],
+  "f": [
+   "时来运转闺阁楼，贤德淑女君子求，击鼓乐之大吉庆，女命逢此喜悠悠。",
+   "Thời vận chuyển, bậc hiền đức được người quân tử tìm cầu; nhạc mừng đại cát, mệnh nữ gặp thì vui vẻ thong dong."
+  ]
  },
  "67": {
   "m": [
    "此命生来福自宏，田园家业最高隆。平生衣禄盈丰足，一世荣华万事通。",
    "Phúc tự lớn, ruộng vườn gia nghiệp rất thịnh; cơm áo dồi dào, cả đời vinh hoa vạn sự thông."
   ],
-  "f": null
+  "f": [
+   "乱丝无头定有头，碰着闲事且暂推，交易出行无好处，谋事求财心不遂。",
+   "Như tơ rối không đầu rồi cũng có đầu; gặp việc thị phi nên tạm gác; giao dịch đi lại ít lợi, mưu sự cầu tài chưa như ý."
+  ]
  },
  "68": {
   "m": [
